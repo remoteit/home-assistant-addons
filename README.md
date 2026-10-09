@@ -61,6 +61,6 @@ a new device build.
 
 ## Checks
 
-- `bin/gen --check`, and Frenck's add-on linter (`frenck/action-addon-linter` v2.21.1) on each folder.
+- `bin/gen --check`, and Frenck's add-on linter (`frenck/action-app-linter` v2.21.1) on each folder.
 - `device/fetch` refuses a manifest signed by another key, a package whose SHA-256 differs from the manifest's, and an
   arch with no package.
