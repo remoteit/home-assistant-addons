@@ -1,0 +1,78 @@
+#!/bin/sh
+# Write each stage's add-on folder from the one source: src/ with the values of stages/<stage>/stage.env, plus that
+# stage's release-keys (device/release-keys) and CHANGELOG.md.
+#
+#   bin/gen           write every stage's folder (replacing it whole: what src/ no longer has goes too)
+#   bin/gen --check   change nothing; fail if any folder differs from what bin/gen would write
+#
+# In src/, @@NAME@@ is the stage's value of NAME (an unknown name fails), and the lines between a line holding
+# `@@if test@@` (or `@@if stable@@`) and one holding `@@end@@` are kept only for a test build (TEST set) — or only for
+# a supported one — the marker lines themselves dropped. Files that are not text (the images) are copied as they are.
+set -eu
+cd "$(dirname "$0")/.."
+check=
+case ${1:-} in
+  --check) check=1 ;;
+  '') ;;
+  *) echo "usage: bin/gen [--check]" >&2; exit 2 ;;
+esac
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+vars='ADDON_DIR ADDON_NAME ADDON_SLUG ADDON_VERSION ADDON_DESCRIPTION HA_STAGE TEST STAGE PORTAL DOWNLOADS DEVICE_VERSION'
+
+render() { # render <source> <destination>: placeholders and the test/stable blocks
+  awk '
+    function fail(m) { printf "bin/gen: %s:%d: %s\n", FILENAME, FNR, m > "/dev/stderr"; bad = 1; exit 1 }
+    /@@if test@@/   { if (depth) fail("nested @@if@@"); depth = 1; keep = (ENVIRON["TEST"] != ""); next }
+    /@@if stable@@/ { if (depth) fail("nested @@if@@"); depth = 1; keep = (ENVIRON["TEST"] == ""); next }
+    /@@end@@/       { if (!depth) fail("@@end@@ without @@if@@"); depth = 0; next }
+    depth && !keep  { next }
+    {
+      line = $0; out = ""
+      while (match(line, /@@[A-Z_]+@@/)) {
+        name = substr(line, RSTART + 2, RLENGTH - 4)
+        if (!(name in ENVIRON) || index(" " ENVIRON["GEN_VARS"] " ", " " name " ") == 0) fail("unknown @@" name "@@")
+        out = out substr(line, 1, RSTART - 1) ENVIRON[name]
+        line = substr(line, RSTART + RLENGTH)
+      }
+      print out line
+    }
+    END { if (!bad && depth) fail("@@if@@ without @@end@@") }
+  ' "$1" > "$2.gen" || return 1
+  cat "$2.gen" > "$2" # keeps the mode cp -p gave it
+  rm -f "$2.gen"
+}
+
+for env in stages/*/stage.env; do
+  stage_dir=$(dirname "$env")
+  (
+    for v in $vars; do unset "$v"; done
+    . "./$env"
+    for v in $vars; do eval "export $v=\"\${$v-}\""; done
+    export GEN_VARS="$vars"
+    for v in ADDON_DIR ADDON_NAME ADDON_SLUG ADDON_VERSION HA_STAGE STAGE PORTAL DOWNLOADS DEVICE_VERSION; do
+      eval "[ -n \"\$$v\" ]" || { echo "bin/gen: $env: $v is not set" >&2; exit 1; }
+    done
+    case $ADDON_SLUG in *[!a-z0-9_]*) echo "bin/gen: $env: ADDON_SLUG must be a-z, 0-9 and _" >&2; exit 1 ;; esac
+
+    out=$tmp/$ADDON_DIR
+    mkdir -p "$out"
+    (cd src && find . -type f ! -name .DS_Store) | sed 's,^\./,,' | sort | while read -r f; do
+      mkdir -p "$out/$(dirname "$f")"
+      cp -p "src/$f" "$out/$f"
+      case $f in *.png) ;; *) render "src/$f" "$out/$f" ;; esac
+    done
+    cp "$stage_dir/release-keys" "$out/device/release-keys"
+    cp "$stage_dir/CHANGELOG.md" "$out/CHANGELOG.md"
+
+    if [ -n "$check" ]; then
+      diff -r -x .DS_Store "$out" "$ADDON_DIR" >&2 || { echo "bin/gen: $ADDON_DIR/ is out of date: run bin/gen" >&2; exit 1; }
+    else
+      rm -rf "$ADDON_DIR"
+      cp -Rp "$out" "$ADDON_DIR"
+      echo "bin/gen: $ADDON_DIR/ ($ADDON_NAME $ADDON_VERSION)"
+    fi
+  ) # set -e holds in here: no || after it
+done
+[ -z "$check" ] || echo "bin/gen: every stage's folder is up to date"

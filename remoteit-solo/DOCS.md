@@ -1,10 +1,12 @@
-# remote.it
+# remote.it (solo test build)
 
 This add-on makes the machine Home Assistant runs on a remote.it device. Through it you reach Home Assistant's own
 web UI from anywhere, and — because the add-on runs on the host's network — any other machine on your home network:
 your router, a camera, a NAS. Nothing is opened on your router: the device connects out to remote.it.
 
-It is for remote.it's **solo** stage for now: register it with a code from <https://app.solo.remote.it>.
+**A test build, unsupported.** This add-on is for remote.it's **solo** stage, for testing: it may change or break
+without notice, and remote.it support does not cover it. Register it with a code from <https://app.solo.remote.it>. Home Assistant
+lists it in the Add-on Store only with **Advanced mode** on (your profile → Advanced mode).
 
 ## Installing
 
@@ -14,27 +16,19 @@ against solo's release key, and the panel built from source. No image is pulled 
 Assistant needs **no registry login**. The first install takes a minute or two (77 s on a HAOS 18.3 VM on a Mac; longer
 on a Raspberry Pi), and every update builds again.
 
-This is a **solo test build**, not a supported remote.it release.
-
 ### From the repository
 
-Settings → Add-ons → Add-on Store → ⋮ → **Repositories** → add the repository's URL, then install **remote.it (solo)**
-from the store and start it. On the add-on's Info page turn on **Show in sidebar**: the panel then shows in the sidebar
-as **remote.it**.
+Settings → Add-ons → Add-on Store → ⋮ → **Repositories** → add `https://github.com/remoteit/home-assistant-addons`,
+then install **remote.it (solo test build)** from the store and start it. On the add-on's Info page turn on **Show in sidebar**: the
+panel then shows in the sidebar as **remote.it**.
 
-While the repository is private on GitHub, its URL carries a GitHub token with read access to it
-(`https://<user>:<token>@github.com/remoteit/home-assistant-addons`; a fine-grained token on the repository with
-*Contents: read*). Supervisor keeps that URL, token and all, in its configuration and in **every backup**.
+A test build is listed only while **Advanced mode** is on in your user profile.
 
-Supervisor clones a repository with `git clone --depth=1`, so the repository must be served by a git server (GitHub, or
-git's "smart" HTTP); static files (git's "dumb" HTTP) are refused: *dumb http transport does not support shallow
-capabilities*.
+### Or as a local add-on (no repository)
 
-### Or as a local add-on (no repository, no token)
-
-Copy the `remoteit/` directory to `/addons/remoteit` on the Home Assistant machine (the Samba or the Terminal & SSH
-add-on), then Add-on Store → ⋮ → **Check for updates**, and install it from **Local add-ons**. Updating it is copying a
-newer `remoteit/` over it.
+Copy the `remoteit-solo/` directory to `/addons/remoteit-solo` on the Home Assistant machine (the Samba or the Terminal & SSH
+add-on), then Add-on Store → ⋮ → **Check for updates**, and install it from **Local add-ons**. Updating it is
+copying a newer `remoteit-solo/` over it.
 
 ## Registering the device
 

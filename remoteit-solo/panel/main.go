@@ -49,7 +49,7 @@ func main() {
 	state := flag.String("state", "/data/remoteit-device", "the device's key directory")
 	control := flag.String("control", "/run/remoteit-device/control.sock", "the daemon's control socket")
 	codeFile := flag.String("code-file", "/data/registration_code", "where a registration code entered here is written")
-	stage := flag.String("stage", "solo", "the device's stage, for the portal's address")
+	stage := flag.String("stage", "prod", "the device's stage, for the portal's address (run.sh gives the add-on's)")
 	haPort := flag.Int("ha-port", 8123, "Home Assistant's web UI port (Supervisor's /core/info)")
 	haScheme := flag.String("ha-scheme", "http", "http, or https when Home Assistant serves TLS (Supervisor's /core/info)")
 	allow := flag.String("allow", "172.30.32.2", "the only peers answered, comma-separated (Supervisor's ingress proxy)")

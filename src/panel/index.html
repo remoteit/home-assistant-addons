@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>remote.it</title>
+<style>
+  :root { --bg: #fafafa; --card: #fff; --text: #212121; --muted: #6b7280; --line: #e5e7eb; --accent: #0096e7;
+          --ok: #2e9d46; --warn: #f09a00; --bad: #d32f2f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111318; --card: #1c1f26; --text: #e5e7eb; --muted: #9ca3af; --line: #2d323c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  .muted { color: var(--muted); }
+  .state { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .connected .dot { background: var(--ok); } .connecting .dot, .waiting .dot { background: var(--warn); }
+  .error .dot { background: var(--bad); }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 16px 0 0; }
+  dt { color: var(--muted); } dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  a.button, button { display: inline-block; background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+                     padding: 9px 16px; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: default; }
+  input { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
+          color: var(--text); font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; margin: 8px 0 12px; }
+  .msg { margin-top: 8px; } .msg.bad { color: var(--bad); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <h1 id="name">remote.it</h1>
+    <div id="state" class="state"><span class="dot"></span><span id="state-text">Loading…</span></div>
+    <dl id="facts" hidden>
+      <dt>UID</dt><dd id="uid"></dd>
+      <dt>Owner</dt><dd id="owner"></dd>
+      <dt>Stage</dt><dd id="stage"></dd>
+      <dt>Version</dt><dd id="version"></dd>
+      <dt id="claim-label" hidden>Claim code</dt><dd id="claim" hidden></dd>
+    </dl>
+    <p id="portal-row" hidden><a id="portal" class="button" target="_blank" rel="noopener">Open in remote.it</a></p>
+  </section>
+
+  <section class="card" id="register" hidden>
+    <h2>Register this device</h2>
+    <p class="muted">Paste a registration code from the remote.it portal (Add device). A code made with a service for
+      Home Assistant gives you its web UI as soon as the device registers.</p>
+    <form id="form">
+      <input id="code" name="code" autocomplete="off" spellcheck="false" placeholder="Registration code" required>
+      <button id="submit" type="submit">Register</button>
+      <div id="form-msg" class="msg"></div>
+    </form>
+  </section>
+
+  <section class="card" id="ha">
+    <h2>Home Assistant's web UI</h2>
+    <p class="muted">To reach Home Assistant through remote.it, the device needs a service for it. In the portal, on
+      this device: Add service — type <code id="ha-type">HTTP</code>, host <code id="ha-host">127.0.0.1</code>,
+      port <code id="ha-port">8123</code>.</p>
+    <h2>Your home network</h2>
+    <p class="muted">This device can also be a gateway: add services whose host is another machine on your network
+      (your router at <code>192.168.1.1</code>, a camera, a NAS), and reach them as you reach Home Assistant.</p>
+  </section>
+</main>
+<script>
+  const $ = id => document.getElementById(id);
+  const show = (el, on) => { el.hidden = !on; };
+  let last = null;
+
+  function render(s) {
+    last = s;
+    $('name').textContent = s.name || (s.registered ? 'remote.it device' : 'remote.it');
+    let cls = s.connected ? 'connected' : s.registered ? 'connecting' : s.waiting ? 'waiting' : s.error ? 'error' : '';
+    let text = s.connected ? 'Connected' : s.registered ? 'Connecting…' : s.waiting ? 'Registering…' : s.error ? 'Not registered' : 'Not registered';
+    $('state').className = 'state ' + cls;
+    $('state-text').textContent = text;
+    show($('facts'), s.registered);
+    $('uid').textContent = s.uid || '';
+    $('owner').textContent = s.owner || (s.claim ? 'unclaimed' : '');
+    $('stage').textContent = s.stage;
+    $('version').textContent = [s.package && 'package ' + s.package, s.connectd && 'connectd ' + s.connectd].filter(Boolean).join(', ');
+    show($('claim-label'), !!s.claim); show($('claim'), !!s.claim);
+    $('claim').textContent = s.claim || '';
+    show($('portal-row'), s.registered);
+    $('portal').href = s.portal;
+    show($('register'), !s.registered);
+    if (!s.registered && s.error && !s.waiting) {
+      $('form-msg').className = 'msg bad';
+      $('form-msg').textContent = 'Not registered: ' + s.error;
+    }
+    const ha = s.homeAssistant;
+    $('ha-type').textContent = ha.scheme === 'https' ? 'HTTPS' : 'HTTP';
+    $('ha-host').textContent = ha.host;
+    $('ha-port').textContent = ha.port;
+  }
+
+  async function refresh() {
+    try {
+      const r = await fetch('api/status', {cache: 'no-store'});
+      if (r.ok) render(await r.json());
+    } catch (e) {
+      $('state-text').textContent = 'The add-on does not answer';
+    }
+  }
+
+  $('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    $('submit').disabled = true;
+    $('form-msg').className = 'msg';
+    $('form-msg').textContent = '';
+    try {
+      const r = await fetch('api/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Remoteit-Panel': '1'},
+        body: JSON.stringify({code: $('code').value})
+      });
+      const body = await r.json().catch(() => ({}));
+      if (r.ok) {
+        $('code').value = '';
+        $('form-msg').textContent = 'Registering…';
+      } else {
+        $('form-msg').className = 'msg bad';
+        $('form-msg').textContent = body.error || ('Refused (' + r.status + ')');
+      }
+    } finally {
+      $('submit').disabled = false;
+      refresh();
+    }
+  });
+
+  refresh();
+  setInterval(refresh, 3000);
+</script>
+</body>
+</html>

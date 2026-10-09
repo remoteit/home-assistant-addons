@@ -41,10 +41,6 @@ func envMain(args []string) {
 			fmt.Fprintf(os.Stderr, "remoteit-panel: Supervisor's /core/info: %v\n", err)
 		}
 	}
-	stage := o.Stage
-	if stage == "" {
-		stage = "solo"
-	}
 	// What the device may do beside its services: no console (a shell in this container, on the host's network), no
 	// proxy role; any port only when asked for. The subnet and exit node need a tun device the add-on does not have.
 	policy := "console_control off;proxy_control off"
@@ -52,7 +48,9 @@ func envMain(args []string) {
 		policy += ";any_port_control off"
 	}
 	set := func(k, v string) { fmt.Printf("export %s=%s\n", k, quote(v)) }
-	set("R3_DEVICE_STAGE", stage)
+	if o.Stage != "" { // else the add-on's own stage: run.sh's default
+		set("R3_DEVICE_STAGE", o.Stage)
+	}
 	set("R3_DEVICE_POLICY", policy)
 	if o.DeviceName != "" {
 		set("R3_DEVICE_NAME", o.DeviceName)

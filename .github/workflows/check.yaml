@@ -1,0 +1,24 @@
+# Every stage's folder is what bin/gen writes from src/ and stages/, and each passes Home Assistant's add-on linter.
+name: check
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bin/gen --check
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        path: [remoteit-solo]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: frenck/action-addon-linter@v2.21.1
+        with:
+          path: ${{ matrix.path }}

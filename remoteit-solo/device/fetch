@@ -1,0 +1,66 @@
+#!/bin/sh
+# Fetch the remote.it device for this machine from solo's downloads and lay it out as the device image does
+# (/usr/lib/remoteit-device: connectd, stages/, BUILD, default-stage) — run by the Dockerfile while Supervisor builds the
+# add-on on the Home Assistant machine.
+#
+#   fetch <version> <Home Assistant arch> <destination>
+#
+# Checked as the device's installer (remoteit-device install.sh) checks a first install on Linux: the version's
+# manifest must be signed (Ed25519) by a key in release-keys beside this script — solo's release key, the one
+# remoteit-device holds for the stage — and the package must match the SHA-256 the manifest gives for it.
+# Anything else fails the build.
+set -eu
+version=${1:?usage: fetch <version> <arch> <destination>}
+arch=${2:?usage: fetch <version> <arch> <destination>}
+dest=${3:?usage: fetch <version> <arch> <destination>}
+base=${R3_DOWNLOADS:-https://downloads.solo.remote.it/device}/$version
+keys=$(dirname "$0")/release-keys
+fail() { echo "fetch: $*" >&2; exit 1; }
+
+# Home Assistant's architectures, as the package's tarballs name them.
+case $arch in
+  aarch64) tar_arch=arm64 ;;
+  amd64) tar_arch=amd64 ;;
+  *) fail "no package for $arch" ;;
+esac
+[ -s "$keys" ] || fail "no release key to check the manifest with"
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+curl -fsSL --retry 3 -o "$tmp/manifest.json" "$base/manifest.json" || fail "cannot fetch $base/manifest.json"
+curl -fsSL --retry 3 -o "$tmp/manifest.json.sig" "$base/manifest.json.sig" || fail "the manifest is not signed"
+
+# The signature: base64 of the raw Ed25519 signature over the manifest's bytes; each key base64 of its DER.
+openssl base64 -d -A -in "$tmp/manifest.json.sig" -out "$tmp/manifest.sig.bin" || fail "the signature is not base64"
+verified=
+for k in $(cat "$keys"); do
+  printf '%s\n' '-----BEGIN PUBLIC KEY-----' "$k" '-----END PUBLIC KEY-----' > "$tmp/release.pem"
+  if openssl pkeyutl -verify -pubin -inkey "$tmp/release.pem" -rawin -in "$tmp/manifest.json" \
+    -sigfile "$tmp/manifest.sig.bin" >/dev/null 2>&1; then
+    verified=1
+    break
+  fi
+done
+[ -n "$verified" ] || fail "the manifest of $version is not signed by solo's release key"
+
+got=$(jq -r .version "$tmp/manifest.json")
+[ "$got" = "$version" ] || fail "the manifest is $got, not $version"
+pkg=$(jq -r --arg k "tar-$tar_arch" '.[$k] // empty' "$tmp/manifest.json")
+sha=$(jq -r --arg k "tar-${tar_arch}_sha256" '.[$k] // empty' "$tmp/manifest.json")
+[ -n "$pkg" ] && [ -n "$sha" ] || fail "the manifest of $version has no tar-$tar_arch package"
+case $pkg in */*|..*) fail "the manifest names '$pkg'" ;; esac
+echo "fetch: $pkg (manifest signed by solo's release key)"
+curl -fsSL --retry 3 -o "$tmp/$pkg" "$base/$pkg" || fail "cannot fetch $base/$pkg"
+[ "$(sha256sum "$tmp/$pkg" | cut -d' ' -f1)" = "$sha" ] || fail "$pkg does not match the manifest's SHA-256"
+
+mkdir -p "$tmp/x" "$dest"
+tar -xzf "$tmp/$pkg" -C "$tmp/x"
+pkgdir=$(find "$tmp/x" -mindepth 1 -maxdepth 1 -type d | head -n1)
+[ -x "$pkgdir/connectd" ] && [ -d "$pkgdir/stages" ] && [ -f "$pkgdir/BUILD" ] || fail "$pkg is not a device package"
+cp "$pkgdir/connectd" "$dest/connectd"
+cp -R "$pkgdir/stages" "$dest/stages"
+# What the package is, as the device image's BUILD says it: connectd reports it. The format is the image's.
+sed 's/^format .*/format container/' "$pkgdir/BUILD" > "$dest/BUILD"
+grep -q '^format ' "$dest/BUILD" || echo 'format container' >> "$dest/BUILD"
+echo solo > "$dest/default-stage"
+echo "fetch: remote.it device $version ($(sed -n 's/^connectd //p' "$dest/BUILD")) for $arch"

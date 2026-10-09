@@ -1,0 +1,199 @@
+#!/bin/sh
+# The container image's entrypoint (docs/container-image.md): a remote.it device as a container. It registers on its
+# first start with a registration code, keeps the key on a volume, and runs connectd in the foreground, its log on
+# stdout. No slots, no update job: the image is what is upgraded.
+#
+#   R3_REGISTRATION_CODE        registration, product or restore code — or the file R3_REGISTRATION_CODE_FILE
+#                               (/run/secrets/r3_registration_code); needed on the first start only
+#   R3_DEVICE_STAGE             a stage the image carries (the image's default: its stage set's); a custom stage is a
+#                               stage file mounted at /etc/remoteit-device/stage.conf
+#   R3_DEVICE_NAME              the name the device registers with (else the container's hostname)
+#   R3_DEVICE_STATE             where the key lives (/var/lib/remoteit-device): a volume, or the container refuses
+#   R3_DEVICE_POLICY            local policy lines, one a line or ';' between: the machine's limits no document
+#                               overrides (connectd local_policy.go), e.g. "any_port_control off"
+#   R3_DEVICE_CONFIG            further configuration lines, as R3_DEVICE_POLICY (advanced; testing)
+#   R3_ALLOW_NO_VOLUME=1        start without a volume: every new container is then a new device
+#   R3_REGISTRATION_RETRY=1     a code refused for good is not fatal: the reason is kept (registration-error beside the
+#                               key) and the container waits for another code
+set -u
+
+share=/usr/lib/remoteit-device
+state=${R3_DEVICE_STATE:-/var/lib/remoteit-device}
+key=$state/device.key
+run=/run/remoteit-device
+conf=$run/connectd.conf
+code_file=${R3_REGISTRATION_CODE_FILE:-/run/secrets/r3_registration_code}
+
+say() { echo "remoteit-device: $*"; }
+
+# Stopped while waiting for a code, or while idle after a drain: nothing to hand on.
+stopping=
+pid=
+on_stop() {
+  stopping=1
+  if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null; else exit 0; fi
+}
+trap on_stop TERM INT
+
+# The key must outlive the container: a key in the container's own layer is lost with it, and every new container
+# would register a new device (and a restore code, spent on the first, would not bring it back). So the state
+# directory, or a directory above it, must be a mount.
+mounted() {
+  d=$1
+  while :; do
+    awk -v d="$d" '$5 == d { found = 1 } END { exit !found }' /proc/self/mountinfo && return 0
+    [ "$d" = / ] && return 1
+    d=$(dirname "$d")
+    [ "$d" = / ] && return 1
+  done
+}
+if ! mounted "$state" && [ "${R3_ALLOW_NO_VOLUME:-}" != 1 ]; then
+  say "refusing to start: $state is not a volume. The device's key lives there; without a volume every new container"
+  say "would register a new device. Mount one (docker run -v remoteit-device:$state …), or set R3_ALLOW_NO_VOLUME=1."
+  exit 64
+fi
+mkdir -p "$state" "$run" && chmod 700 "$state" "$run" || exit 1
+
+# The stage: a mounted stage file, else one the image carries.
+custom=/etc/remoteit-device/stage.conf
+stage=${R3_DEVICE_STAGE:-$(cat "$share/default-stage")}
+if [ -f "$custom" ]; then
+  stage_file=$custom
+  stage=$(sed -n 's/^# stage \([a-z0-9-]*\).*/\1/p' "$custom" | head -n1)
+  [ -n "$stage" ] || stage=custom
+else
+  case $stage in *[!a-z0-9-]*|"") say "'$stage' is not a stage name"; exit 64 ;; esac
+  stage_file=$share/stages/$stage.conf
+  if [ ! -f "$stage_file" ]; then
+    say "this image has no stage '$stage' (it carries: $(cd "$share/stages" && ls | sed 's/\.conf$//' | tr '\n' ' '))"
+    exit 64
+  fi
+fi
+grep -q '^service_key ' "$stage_file" || { say "stage '$stage' is not ready (its file pins no service key)"; exit 64; }
+
+# A key registered on one stage signs in on that stage only.
+if [ -s "$key.uid" ] && [ -s "$state/installed-stage" ]; then
+  was=$(cat "$state/installed-stage")
+  if [ "$was" != "$stage" ]; then
+    say "this volume's device is registered on stage '$was', not '$stage': use R3_DEVICE_STAGE=$was, or a new volume"
+    exit 64
+  fi
+fi
+
+lines() { printf '%s\n' "$1" | tr ';' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^#' | grep . ; }
+
+code() {
+  if [ -n "${R3_REGISTRATION_CODE:-}" ]; then
+    printf '%s' "$R3_REGISTRATION_CODE" | head -n1 | tr -d '[:space:]'
+  elif [ -r "$code_file" ]; then
+    head -n1 "$code_file" | tr -d '[:space:]'
+  fi
+}
+
+write_conf() { # [code]
+  umask 077
+  {
+    echo "# stage $stage"
+    echo "device_key_file $key"
+    grep -v '^[[:space:]]*#' "$stage_file" | grep .
+    echo "allow_initiators 1"
+    echo "control_socket $run/control.sock"
+    # The image is what is upgraded: no update command, and remote updates off in the policy, so the portal shows
+    # them off rather than a failure on every release.
+    echo "updates_control off"
+    # Without the tun device and NET_ADMIN there is no subnet and no exit node: the container is a target alone.
+    if [ ! -c /dev/net/tun ]; then
+      echo "subnet_control off"
+      echo "exit_node_control off"
+    fi
+    [ -n "${R3_DEVICE_POLICY:-}" ] && lines "$R3_DEVICE_POLICY"
+    [ -n "${R3_DEVICE_CONFIG:-}" ] && lines "$R3_DEVICE_CONFIG"
+    if [ -n "${1:-}" ]; then
+      [ -n "${R3_DEVICE_NAME:-}" ] && echo "registration_name $R3_DEVICE_NAME"
+      echo "registration_code $1"
+    fi
+  } > "$conf.new" && mv "$conf.new" "$conf"
+}
+
+# A code refused for good is not tried again (R3_REGISTRATION_RETRY=1): remembered by its hash, never kept.
+refused=$state/registration-refused.sha256
+digest() { printf '%s' "$1" | sha256sum | cut -d' ' -f1; }
+next_code() {
+  c=$(code)
+  if [ -n "$c" ] && [ -f "$refused" ] && [ "$(digest "$c")" = "$(cat "$refused")" ]; then c=; fi
+  printf '%s' "$c"
+}
+
+# The daemon's log goes to stdout, read on its way for the registration's outcome, which is kept beside the key for
+# whoever shows the device's state (the Home Assistant add-on's panel): registration-error, the reason it was refused.
+run_daemon() {
+  rm -f "$run/log"
+  mkfifo "$run/log" || exit 1
+  (
+    while IFS= read -r line; do
+      printf '%s\n' "$line"
+      case $line in
+        *"registration refused: "*) printf '%s\n' "${line#*registration refused: }" > "$state/registration-error" ;;
+        *"device session: registered as "*) rm -f "$state/registration-error" "$refused" ;;
+      esac
+    done < "$run/log"
+  ) &
+  "$share/connectd" -f "$conf" > "$run/log" 2>&1 &
+  pid=$!
+  while :; do
+    wait "$pid"
+    status=$?
+    # wait returns early for a trapped signal; the daemon is still running then.
+    kill -0 "$pid" 2>/dev/null || break
+  done
+  pid=
+}
+
+# The first start registers; later starts sign in with the key and ignore any code.
+while :; do
+  if [ -s "$key.uid" ]; then
+    write_conf
+  else
+    c=$(next_code)
+    if [ -z "$c" ]; then
+      say "not registered: waiting for a registration code (R3_REGISTRATION_CODE, or the file $code_file)"
+      while [ -z "$c" ]; do
+        sleep 3 & wait $! 2>/dev/null
+        [ -n "$stopping" ] && exit 0
+        c=$(next_code)
+      done
+    fi
+    case $c in *'#'*) say "that is not a registration code"; exit 64 ;; esac
+    write_conf "$c"
+    say "registering on stage $stage…"
+    # Once registered, the code is spent: out of the configuration, and its file removed where it can be (a Docker
+    # secret is read-only, and stays).
+    (
+      while [ ! -s "$key.uid" ]; do sleep 2; done
+      write_conf
+      [ -f "$code_file" ] && rm -f "$code_file" 2>/dev/null
+      echo "$stage" > "$state/installed-stage"
+    ) &
+    watcher=$!
+  fi
+
+  [ -n "$stopping" ] && exit 0
+  run_daemon
+  [ -s "$key.uid" ] || [ -z "${watcher:-}" ] || kill "$watcher" 2>/dev/null
+  # Refused for good before it was registered: with R3_REGISTRATION_RETRY=1, wait for another code; else fail.
+  if [ -z "$stopping" ] && [ "$status" != 0 ] && [ ! -s "$key.uid" ] && [ "${R3_REGISTRATION_RETRY:-}" = 1 ]; then
+    digest "$c" > "$refused"
+    [ -f "$code_file" ] && rm -f "$code_file" 2>/dev/null
+    say "registration failed: $(cat "$state/registration-error" 2>/dev/null || echo "the daemon exited ($status)")"
+    continue
+  fi
+  break
+done
+
+# Stopped: the daemon's exit for a signal (3) is no failure.
+[ -n "$stopping" ] && exit 0
+[ "$status" != 0 ] && exit "$status"
+# A drained daemon exits 0. Started again (restart: always), it would sign in with a higher generation and take the
+# device back from its successor, so the container stays up, idle, until it is stopped.
+say "the daemon exited cleanly (drained: another daemon has this device); idle until this container is stopped"
+while :; do sleep 3600 & wait $!; done
