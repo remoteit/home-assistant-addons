@@ -1,23 +1,39 @@
-# The remote.it add-on: the remote.it device image (remoteit-device's container/, ghcr.io/remoteit/device) with the
-# panel and the add-on's start script. BUILD_FROM is build.yaml's: Home Assistant's builder passes it per arch.
-ARG BUILD_FROM=ghcr.io/remoteit/device:1.1.0.20261009041129-solo
+# The remote.it add-on, built by Supervisor on the Home Assistant machine itself: Home Assistant's public base image,
+# the remote.it device fetched from solo's downloads and checked against solo's release key (device/fetch), the device
+# image's entrypoint and healthcheck (device/, copies of remoteit-device's container/), the panel built from source
+# here, and the add-on's start script. Nothing private: no registry login, no token.
+#
+# BUILD_FROM and BUILD_ARCH are Supervisor's (build.yaml's base for the machine's arch); DEVICE_VERSION is the device
+# build to fetch — one in https://downloads.solo.remote.it/device/<version>/.
+ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:3.24-2026.10.0
 
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS panel
-ARG TARGETARCH
-ARG TARGETVARIANT
+# The panel: Go, no dependencies outside the standard library, built for the machine it is built on.
+FROM golang:1.24-alpine AS panel
 WORKDIR /src
 COPY panel/ .
-RUN if [ -n "$TARGETVARIANT" ]; then export GOARM=${TARGETVARIANT#v}; fi; \
-    CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /remoteit-panel .
+RUN CGO_ENABLED=0 GOPROXY=off go build -trimpath -ldflags "-s -w" -o /remoteit-panel .
+
+# The device: downloaded and checked here, so the image it is laid into carries neither curl's work nor the key.
+FROM ${BUILD_FROM} AS device
+ARG BUILD_ARCH
+ARG DEVICE_VERSION=1.1.0.20261009062231
+RUN apk add --no-cache curl jq openssl
+COPY device/fetch device/release-keys /fetch/
+RUN /fetch/fetch "${DEVICE_VERSION}" "${BUILD_ARCH}" /usr/lib/remoteit-device
 
 FROM ${BUILD_FROM}
 ARG BUILD_VERSION
+ARG BUILD_ARCH
+COPY --from=device /usr/lib/remoteit-device/ /usr/lib/remoteit-device/
+COPY device/entrypoint device/healthcheck /usr/lib/remoteit-device/
 COPY --from=panel /remoteit-panel /usr/bin/remoteit-panel
 COPY run.sh /usr/lib/remoteit-device/addon-run
-# The key in the add-on's /data — set here, not only in run.sh, for the image's HEALTHCHECK to find it too.
+# The key in the add-on's /data — set here, not only in run.sh, for the HEALTHCHECK to find it too.
 ENV R3_DEVICE_STATE=/data/remoteit-device
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s CMD ["/usr/lib/remoteit-device/healthcheck"]
 LABEL io.hass.type="addon" \
       io.hass.name="remote.it" \
+      io.hass.arch="${BUILD_ARCH}" \
       io.hass.version="${BUILD_VERSION}" \
       org.opencontainers.image.title="remote.it Home Assistant add-on" \
       org.opencontainers.image.source="https://github.com/remoteit/home-assistant-addons"

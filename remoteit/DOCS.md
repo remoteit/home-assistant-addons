@@ -6,31 +6,35 @@ your router, a camera, a NAS. Nothing is opened on your router: the device conne
 
 It is for remote.it's **solo** stage for now: register it with a code from <https://app.solo.remote.it>.
 
-## Installing from the private repository
+## Installing
 
-The repository and its image are private while the add-on is tested, so Home Assistant needs a GitHub login for each.
+Supervisor builds the add-on on the Home Assistant machine itself, from its Dockerfile: Home Assistant's public base
+image, the remote.it device downloaded from solo's downloads (https://downloads.solo.remote.it/device/) and checked
+against solo's release key, and the panel built from source. No image is pulled from a private registry, so Home
+Assistant needs **no registry login**. The first install takes a minute or two (77 s on a HAOS 18.3 VM on a Mac; longer
+on a Raspberry Pi), and every update builds again.
 
-1. **A GitHub token** with read access to both:
-   - for the repository: a fine-grained token on `remoteit/home-assistant-addons` with *Contents: read*, or a classic
-     token with `repo`;
-   - for the image in GitHub's registry: a **classic** token with `read:packages` (GitHub's registry does not take
-     fine-grained tokens).
+This is a **solo test build**, not a supported remote.it release.
 
-   One classic token with `repo` and `read:packages` serves both.
-2. **The registry login** — Settings → Add-ons → Add-on Store → ⋮ → **Registries** → Add registry:
-   registry `ghcr.io`, user name your GitHub user, password the token. (Or Supervisor's API:
-   `POST /docker/registries` with `{"ghcr.io": {"username": "<user>", "password": "<token>"}}`.) Without it the
-   install fails pulling `ghcr.io/remoteit/home-assistant-remoteit`.
-3. **The repository** — Settings → Add-ons → Add-on Store → ⋮ → **Repositories** → add
-   `https://<user>:<token>@github.com/remoteit/home-assistant-addons`. Supervisor clones it with that login (and keeps
-   the URL, token and all, in its configuration).
-4. Install **remote.it (solo)** from the store, then start it. It shows in the sidebar as **remote.it**.
+### From the repository
 
-### Or as a local add-on (testing)
+Settings → Add-ons → Add-on Store → ⋮ → **Repositories** → add the repository's URL, then install **remote.it (solo)**
+from the store and start it. On the add-on's Info page turn on **Show in sidebar**: the panel then shows in the sidebar
+as **remote.it**.
 
-Copy the `remoteit/` directory to `/addons/remoteit` on the Home Assistant machine (the Samba or SSH add-on), delete the
-`image:` line from its `config.yaml`, and install it from **Local add-ons**: Supervisor then builds it on the machine
-from its Dockerfile — which still pulls the private base image, so the registry login (step 2) is needed all the same.
+While the repository is private on GitHub, its URL carries a GitHub token with read access to it
+(`https://<user>:<token>@github.com/remoteit/home-assistant-addons`; a fine-grained token on the repository with
+*Contents: read*). Supervisor keeps that URL, token and all, in its configuration and in **every backup**.
+
+Supervisor clones a repository with `git clone --depth=1`, so the repository must be served by a git server (GitHub, or
+git's "smart" HTTP); static files (git's "dumb" HTTP) are refused: *dumb http transport does not support shallow
+capabilities*.
+
+### Or as a local add-on (no repository, no token)
+
+Copy the `remoteit/` directory to `/addons/remoteit` on the Home Assistant machine (the Samba or the Terminal & SSH
+add-on), then Add-on Store → ⋮ → **Check for updates**, and install it from **Local add-ons**. Updating it is copying a
+newer `remoteit/` over it.
 
 ## Registering the device
 
@@ -50,13 +54,14 @@ portal.
 ## Home Assistant's web UI
 
 Home Assistant listens on this machine, and the add-on runs on the host's network, so the service for its UI is on
-**127.0.0.1**, at Home Assistant's port (8123 unless you changed it). In the portal, on this device, **Add service**:
+**127.0.0.1**, at Home Assistant's port — the one the panel shows, as Supervisor reports it (8123 unless changed; the
+HAOS 18.3 test VM's Home Assistant 2026.10 serves on 80). In the portal, on this device, **Add service**:
 
 | | |
 |---|---|
 | Type | **HTTP** — or **HTTPS** if Home Assistant serves TLS itself (`ssl_certificate` in its `http:` configuration) |
 | Host | `127.0.0.1` |
-| Port | `8123` |
+| Port | the panel's (`8123`, or `80`) |
 
 The panel shows the type and port to use: it asks Supervisor how Home Assistant serves its UI. The type matters: an
 HTTP service in front of a port that answers TLS gets an empty reply.

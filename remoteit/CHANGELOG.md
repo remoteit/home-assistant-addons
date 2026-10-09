@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- Built on the Home Assistant machine by Supervisor (no `image`): Home Assistant's base image
+  (`ghcr.io/home-assistant/{aarch64,amd64}-base:3.24-2026.10.0`), the remote.it device 1.1.0.20261009062231 from solo's
+  downloads — its manifest checked against solo's release key and the package against the manifest's SHA-256 — and the
+  panel built from source. No private image and no registry login.
+
 ## 0.1.0
 
 - First version, for the solo stage: the remote.it device (`ghcr.io/remoteit/device:1.1.0.20261009041129-solo`,

@@ -1,0 +1,11 @@
+#!/bin/sh
+# The image's HEALTHCHECK: healthy while the daemon's status file says it is signed in (connected) — its own account,
+# rewritten every 5 s beside the key (connectd status_file.go). A container waiting for its registration code is doing
+# what it should, and is healthy: restarting it (Home Assistant's watchdog, an orchestrator) would change nothing.
+state=${R3_DEVICE_STATE:-/var/lib/remoteit-device}
+if [ ! -s "$state/device.key.uid" ] && [ ! -f "$state/device.key.status" ]; then echo "not registered: waiting for a code"; exit 0; fi
+status=$state/device.key.status
+[ -f "$status" ] || { echo "no status yet (starting)"; exit 1; }
+if grep -q '"state": *"connected"' "$status"; then echo connected; exit 0; fi
+sed -n 's/.*"state": *"\([^"]*\)".*/\1/p' "$status"
+exit 1

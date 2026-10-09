@@ -1,12 +1,11 @@
 name: remote.it (solo)
-version: "0.1.0"
+version: "0.2.0"
 slug: remoteit
 description: Reach Home Assistant and the devices on your home network from anywhere, through remote.it
 url: https://github.com/remoteit/home-assistant-addons/tree/main/remoteit
 arch:
   - aarch64
   - amd64
-image: ghcr.io/remoteit/home-assistant-remoteit
 startup: services
 # The host's network: Home Assistant's own UI on 127.0.0.1, and the machines on the home network by their addresses.
 host_network: true
