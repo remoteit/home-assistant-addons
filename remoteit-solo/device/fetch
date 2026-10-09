@@ -1,13 +1,15 @@
 #!/bin/sh
 # Fetch the remote.it device for this machine from solo's downloads and lay it out as the device image does
-# (/usr/lib/remoteit-device: connectd, stages/, BUILD, default-stage) — run by the Dockerfile while Supervisor builds the
-# add-on on the Home Assistant machine.
+# (/usr/lib/remoteit-device: connectd, stages/, BUILD, default-stage, entrypoint, healthcheck) with the add-on's panel
+# beside them (remoteit-panel) — run by the Dockerfile while Supervisor builds the add-on on the Home Assistant machine.
+# Two packages of one build, both named by its manifest: the device's tarball (tar-<arch>) and the container pieces
+# (container-<arch>: remoteit-device's container/ entrypoint and healthcheck, and container/panel built).
 #
 #   fetch <version> <Home Assistant arch> <destination>
 #
 # Checked as the device's installer (remoteit-device install.sh) checks a first install on Linux: the version's
 # manifest must be signed (Ed25519) by a key in release-keys beside this script — solo's release key, the one
-# remoteit-device holds for the stage — and the package must match the SHA-256 the manifest gives for it.
+# remoteit-device holds for the stage — and each package must match the SHA-256 the manifest gives for it.
 # Anything else fails the build.
 set -eu
 version=${1:?usage: fetch <version> <arch> <destination>}
@@ -45,19 +47,31 @@ done
 
 got=$(jq -r .version "$tmp/manifest.json")
 [ "$got" = "$version" ] || fail "the manifest is $got, not $version"
-pkg=$(jq -r --arg k "tar-$tar_arch" '.[$k] // empty' "$tmp/manifest.json")
-sha=$(jq -r --arg k "tar-${tar_arch}_sha256" '.[$k] // empty' "$tmp/manifest.json")
-[ -n "$pkg" ] && [ -n "$sha" ] || fail "the manifest of $version has no tar-$tar_arch package"
-case $pkg in */*|..*) fail "the manifest names '$pkg'" ;; esac
-echo "fetch: $pkg (manifest signed by solo's release key)"
-curl -fsSL --retry 3 -o "$tmp/$pkg" "$base/$pkg" || fail "cannot fetch $base/$pkg"
-[ "$(sha256sum "$tmp/$pkg" | cut -d' ' -f1)" = "$sha" ] || fail "$pkg does not match the manifest's SHA-256"
 
-mkdir -p "$tmp/x" "$dest"
-tar -xzf "$tmp/$pkg" -C "$tmp/x"
-pkgdir=$(find "$tmp/x" -mindepth 1 -maxdepth 1 -type d | head -n1)
-[ -x "$pkgdir/connectd" ] && [ -d "$pkgdir/stages" ] && [ -f "$pkgdir/BUILD" ] || fail "$pkg is not a device package"
-cp "$pkgdir/connectd" "$dest/connectd"
+# get <manifest key>: that package, downloaded and checked against the manifest's SHA-256, unpacked; prints its directory.
+get() {
+  pkg=$(jq -r --arg k "$1" '.[$k] // empty' "$tmp/manifest.json")
+  sha=$(jq -r --arg k "$1_sha256" '.[$k] // empty' "$tmp/manifest.json")
+  [ -n "$pkg" ] && [ -n "$sha" ] || fail "the manifest of $version has no $1 package"
+  case $pkg in */*|..*) fail "the manifest names '$pkg'" ;; esac
+  echo "fetch: $pkg (manifest signed by solo's release key)" >&2
+  curl -fsSL --retry 3 -o "$tmp/$pkg" "$base/$pkg" || fail "cannot fetch $base/$pkg"
+  [ "$(sha256sum "$tmp/$pkg" | cut -d' ' -f1)" = "$sha" ] || fail "$pkg does not match the manifest's SHA-256"
+  mkdir -p "$tmp/$1"
+  tar -xzf "$tmp/$pkg" -C "$tmp/$1"
+  find "$tmp/$1" -mindepth 1 -maxdepth 1 -type d | head -n1
+}
+
+# The device: connectd, its stages and BUILD.
+pkgdir=$(get "tar-$tar_arch")
+[ -x "$pkgdir/connectd" ] && [ -d "$pkgdir/stages" ] && [ -f "$pkgdir/BUILD" ] || fail "tar-$tar_arch is not a device package"
+# The device image's pieces, built with it: its entrypoint and healthcheck (remoteit-device container/) and the panel.
+cdir=$(get "container-$tar_arch")
+[ -x "$cdir/entrypoint" ] && [ -x "$cdir/healthcheck" ] && [ -x "$cdir/remoteit-panel" ] ||
+  fail "container-$tar_arch does not hold the entrypoint, healthcheck and panel"
+
+mkdir -p "$dest"
+cp "$pkgdir/connectd" "$cdir/entrypoint" "$cdir/healthcheck" "$cdir/remoteit-panel" "$dest/"
 cp -R "$pkgdir/stages" "$dest/stages"
 # What the package is, as the device image's BUILD says it: connectd reports it. The format is the image's.
 sed 's/^format .*/format container/' "$pkgdir/BUILD" > "$dest/BUILD"

@@ -12,7 +12,7 @@ lists it in the Add-on Store only with **Advanced mode** on (your profile → Ad
 
 Supervisor builds the add-on on the Home Assistant machine itself, from its Dockerfile: Home Assistant's public base
 image, the remote.it device downloaded from solo's downloads (https://downloads.solo.remote.it/device/) and checked
-against solo's release key, and the panel built from source. No image is pulled from a private registry, so Home
+against solo's release key, with the add-on's panel built and released with it. No image is pulled from a private registry, so Home
 Assistant needs **no registry login**. The first install takes a minute or two (77 s on a HAOS 18.3 VM on a Mac; longer
 on a Raspberry Pi), and every update builds again.
 

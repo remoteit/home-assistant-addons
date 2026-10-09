@@ -34,8 +34,9 @@ yet.
 Supervisor builds each add-on on the Home Assistant machine from its Dockerfile — no private image, no registry login:
 Home Assistant's public base image, the remote.it device package downloaded from the stage's downloads and checked
 against the stage's release key (`device/fetch`: the version's `manifest.json` signed with Ed25519, the tarball matching
-its SHA-256, as the device's `install.sh` checks a first install), and the panel built from source (Go, standard
-library only, no network).
+its SHA-256, as the device's `install.sh` checks a first install), and from the same build its container pieces — the
+device image's entrypoint and healthcheck and the add-on's panel, built and released with the device (remoteit-device
+`container/`, manifest key `container-<arch>`). The repository holds no copy of them and builds no Go.
 
 ## One source, a folder per stage
 
@@ -53,12 +54,10 @@ branch, so each has its own folder rather than its own branch.
   CI (`.github/workflows/check.yaml`) runs it, and Frenck's add-on linter on each folder — add a new stage's folder to
   its matrix.
 
-A newer device build for a stage: `DEVICE_VERSION` in its `stage.env` (a version in its downloads), its
-`ADDON_VERSION`, a CHANGELOG entry, and `bin/gen`.
-
-`src/device/entrypoint` and `src/device/healthcheck` are byte-for-byte copies of remoteit-device's
-`container/entrypoint` and `container/healthcheck`, their source. Check with
-`git -C <remoteit-device> show origin/solo:container/entrypoint | diff - src/device/entrypoint`.
+A newer device build for a stage: `DEVICE_VERSION` in its `stage.env` (a version in its downloads whose manifest has
+the container pieces for both of Home Assistant's arches: `container-arm64` and `container-amd64`), its `ADDON_VERSION`, a
+CHANGELOG entry, and `bin/gen`. A change to the panel, the entrypoint or the healthcheck is a remoteit-device change and
+a new device build.
 
 ## Checks
 

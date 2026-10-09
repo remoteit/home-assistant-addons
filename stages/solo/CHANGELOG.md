@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- The panel, and the device image's entrypoint and healthcheck, come with the remote.it device from solo's downloads
+  (the build's `container-<arch>` package, checked against the same signed manifest) instead of being built or copied
+  here: the install no longer builds Go, so it is quicker. Nothing changes in what the add-on does.
+- The remote.it device 1.1.0.20261009223419 (connectd-go 5.6.1.20261009223419).
+
 ## 0.3.0
 
 - **A new add-on identity: `remoteit_solo`, "remote.it (solo test build)"** (was `remoteit`, "remote.it (solo)"), in the

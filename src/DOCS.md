@@ -17,7 +17,7 @@ Register it with a code from the remote.it portal, <@@PORTAL@@>.
 
 Supervisor builds the add-on on the Home Assistant machine itself, from its Dockerfile: Home Assistant's public base
 image, the remote.it device downloaded from @@STAGE@@'s downloads (@@DOWNLOADS@@/) and checked
-against @@STAGE@@'s release key, and the panel built from source. No image is pulled from a private registry, so Home
+against @@STAGE@@'s release key, with the add-on's panel built and released with it. No image is pulled from a private registry, so Home
 Assistant needs **no registry login**. The first install takes a minute or two (77 s on a HAOS 18.3 VM on a Mac; longer
 on a Raspberry Pi), and every update builds again.
 
