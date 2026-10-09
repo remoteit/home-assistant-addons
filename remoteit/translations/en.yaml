@@ -1,0 +1,17 @@
+configuration:
+  registration_code:
+    name: Registration code
+    description: >-
+      A registration code from the remote.it portal (Add device), used once, on the first start. Or leave it empty and
+      enter it in the remote.it panel.
+  device_name:
+    name: Device name
+    description: The name the device registers with, unless the code names it.
+  stage:
+    name: Stage
+    description: The remote.it environment this device registers with.
+  any_port:
+    name: Any port
+    description: >-
+      Let the portal open connections to any port on any host this machine reaches, not only the services you add.
+      Off by default.

@@ -1,0 +1,28 @@
+name: remote.it (solo)
+version: "0.1.0"
+slug: remoteit
+description: Reach Home Assistant and the devices on your home network from anywhere, through remote.it
+url: https://github.com/remoteit/home-assistant-addons/tree/main/remoteit
+arch:
+  - aarch64
+  - amd64
+image: ghcr.io/remoteit/home-assistant-remoteit
+startup: services
+# The host's network: Home Assistant's own UI on 127.0.0.1, and the machines on the home network by their addresses.
+host_network: true
+ingress: true
+ingress_port: 29190
+panel_icon: mdi:remote-desktop
+panel_title: remote.it
+# Supervisor's /core/info: the port Home Assistant serves its UI on, and whether it serves TLS.
+hassio_api: true
+options:
+  registration_code: ""
+  device_name: Home Assistant
+  stage: solo
+  any_port: false
+schema:
+  registration_code: password?
+  device_name: str?
+  stage: list(solo)
+  any_port: bool

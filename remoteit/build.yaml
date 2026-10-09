@@ -1,0 +1,6 @@
+build_from:
+  aarch64: ghcr.io/remoteit/device:1.1.0.20261009041129-solo
+  amd64: ghcr.io/remoteit/device:1.1.0.20261009041129-solo
+labels:
+  org.opencontainers.image.title: remote.it Home Assistant add-on
+  org.opencontainers.image.source: https://github.com/remoteit/home-assistant-addons
