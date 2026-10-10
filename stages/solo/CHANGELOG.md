@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- The remote.it device 1.1.0.20261010000855 (connectd-go 5.6.1.20261010000855): an **AirPrint** service on this device
+  (type AirPrint, the printer's address, port 631) makes its printer appear in the print dialogs of the Macs that reach
+  it — the device reads the printer's own Bonjour record and passes it on. And the scheme a web service really answers
+  (HTTP or HTTPS) now reaches the portal, which offers to change the service's type to match.
+
 ## 0.4.0
 
 - The panel, and the device image's entrypoint and healthcheck, come with the remote.it device from solo's downloads

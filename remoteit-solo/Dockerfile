@@ -12,7 +12,7 @@ ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:3.24-2026.10.0
 # The device: downloaded and checked here, so the image it is laid into carries neither curl's work nor the key.
 FROM ${BUILD_FROM} AS device
 ARG BUILD_ARCH
-ARG DEVICE_VERSION=1.1.0.20261009223419
+ARG DEVICE_VERSION=1.1.0.20261010000855
 RUN apk add --no-cache curl jq openssl
 COPY device/fetch device/release-keys /fetch/
 RUN /fetch/fetch "${DEVICE_VERSION}" "${BUILD_ARCH}" /usr/lib/remoteit-device
