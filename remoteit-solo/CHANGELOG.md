@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+- The remote.it device 1.1.0.20261010045250 (connectd-go 5.6.1.20261010045250): a session carried by the other
+  device's reflector keeps looking for a direct path every 30 s, as the relaying side does, so one that becomes
+  possible is found; a stalled connection to the reflector no longer freezes the device (relayed sends are queued and
+  a write stuck past 5 s redials).
+
 ## 0.5.0
 
 - The remote.it device 1.1.0.20261010000855 (connectd-go 5.6.1.20261010000855): an **AirPrint** service on this device
