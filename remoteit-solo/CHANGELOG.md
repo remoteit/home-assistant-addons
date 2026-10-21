@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0
+
+- The remote.it device 1.1.0.20261021193149 (connectd-go 5.6.1.20261021193149): each connection to a service now
+  carries where it goes, so a service you add or change in the portal works at once, with nothing to wait for on the
+  device. In the portal, **What this device sees** lists what your Home Assistant machine finds on your network (printers,
+  file shares, web pages and other devices that announce themselves) and what runs on the machine itself, each with
+  **Add as service**. A service at a `.local` name follows the device as its address changes, and a connection to a port
+  nothing listens on is refused at once with the reason in the log. Printers are ordinary services now (type Printer):
+  add one from **What this device sees**. An AirPrint service added under 0.5.0 is a Printer service now: open it in
+  the portal and save it once, and the Macs that reach it list it in their print dialogs again.
+
 ## 0.6.0
 
 - The remote.it device 1.1.0.20261010045250 (connectd-go 5.6.1.20261010045250): a session carried by the other
