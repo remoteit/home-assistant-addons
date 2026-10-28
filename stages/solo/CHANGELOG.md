@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0
+
+- The remote.it device 1.1.0.20261028223058 (connectd-go 5.6.1.20261028223058): idle connections cost far less CPU, and
+  setting up a connection takes less work, so a machine holding many connections stays light. A connection whose keys
+  are renewed keeps going rather than starting again, and an IPv6 path that was slow to answer is tried once more. With
+  the console turned on, a long command an AI starts keeps running on the device by itself, its output kept there to be
+  read, rather than ending with the connection it was started over.
+
 ## 0.7.0
 
 - The remote.it device 1.1.0.20261021193149 (connectd-go 5.6.1.20261021193149): each connection to a service now
