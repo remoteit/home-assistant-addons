@@ -73,8 +73,9 @@ cdir=$(get "container-$tar_arch")
 mkdir -p "$dest"
 cp "$pkgdir/connectd" "$cdir/entrypoint" "$cdir/healthcheck" "$cdir/remoteit-panel" "$dest/"
 cp -R "$pkgdir/stages" "$dest/stages"
-# What the package is, as the device image's BUILD says it: connectd reports it. The format is the image's.
-sed 's/^format .*/format container/' "$pkgdir/BUILD" > "$dest/BUILD"
-grep -q '^format ' "$dest/BUILD" || echo 'format container' >> "$dest/BUILD"
+# What the package is, as the device image's BUILD says it: connectd reports it. The format is the image's, and so is
+# what upgrades it — a new add-on image (the entrypoint turns updates off), not remote.it: updated_by image.
+sed '/^format /d; /^updated_by /d' "$pkgdir/BUILD" > "$dest/BUILD"
+printf 'format container\nupdated_by image\n' >> "$dest/BUILD"
 echo @@STAGE@@ > "$dest/default-stage"
 echo "fetch: remote.it device $version ($(sed -n 's/^connectd //p' "$dest/BUILD")) for $arch"
