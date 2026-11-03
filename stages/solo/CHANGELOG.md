@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0
+
+- The remote.it device 1.1.0.20261103215803 (connectd-go 5.6.1.20261103215803). Upgrades hand over without a gap:
+  the new device takes over from the old one in seconds and the old one is told to stop, every time. A connection
+  closed from the portal or an app ends at once, also when one end had already forgotten it, and a connection that
+  ends on its own is reported until the service hears it. A local port can be served over https
+  (`<name>.at.remote.it`), a service's redirects keep the local port, and a service set up as http that answers only
+  with a redirect to https is followed to https and reported, so the portal offers to switch it. The device speaks the
+  remote.it service's current protocol, so what it finds about itself reaches the portal again.
+
 ## 0.8.0
 
 - The remote.it device 1.1.0.20261028223058 (connectd-go 5.6.1.20261028223058): idle connections cost far less CPU, and
