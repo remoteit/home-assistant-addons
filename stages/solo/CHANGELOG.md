@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.3
+
+- The remote.it device 1.1.0.20261108005210: commands an AI runs through the console as your own account (not root)
+  work — they were refused "permission denied" on the console's socket, as the device's data directory let no one but
+  root through.
+
 ## 0.10.2
 
 - The console can be turned on: the device now finds the release keys 0.10.1 laid in, which it checks the console's
