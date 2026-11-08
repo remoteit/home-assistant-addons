@@ -80,10 +80,21 @@ without a service for each) is off unless you turn on the `any_port` option.
 | `device_name` | the name the device registers with, unless the code names it (`Home Assistant`) |
 | `stage` | remote.it's environment: `solo` |
 | `any_port` | let the portal open connections to any port on any host this machine reaches (off) |
+| `console` | let the portal open a terminal on the device, and an AI run commands there (on) |
+
+## The console
+
+The device's console is on: whoever manages the device in the portal can open a terminal on it, and an AI given the
+device can run commands there. It is a shell in this add-on's container, as root, on the host's network — not Home
+Assistant OS itself: it reaches what the add-on reaches (the machines on your network, Home Assistant on 127.0.0.1),
+and changes made in it outside `/data` last only until the add-on restarts. The console runs its own OpenSSH, installed
+by the device; no SSH port is opened.
+
+Turn it off with the `console` option (and restart the add-on): the portal cannot turn it back on while the option is
+off. With the option on, it can be turned off and on in the portal (the device's **Apps**).
 
 ## What the device does not do here
 
-- **No console**: remote.it's terminal would be a shell in this add-on's container, on the host's network.
 - **No subnet and no exit node**: they need a network device the add-on is not given.
 - **No proxy role.**
 - **No remote updates**: the device is updated with the add-on (the portal shows its updates as off).

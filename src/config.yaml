@@ -23,8 +23,10 @@ options:
   device_name: Home Assistant
   stage: @@STAGE@@
   any_port: false
+  console: true
 schema:
   registration_code: password?
   device_name: str?
   stage: list(@@STAGE@@)
   any_port: bool
+  console: bool

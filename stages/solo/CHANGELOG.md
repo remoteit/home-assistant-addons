@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0
+
+- The console is on: whoever manages the device can open a terminal on it from the portal, and an AI given the device
+  can run commands there — a shell in the add-on's container, as root, on the host's network, by OpenSSH the device
+  installs itself. The new `console` option (on) turns it off; while it is off the portal cannot turn it on.
+- The remote.it device 1.1.0.20261107235831 (connectd-go 5.6.1.20261107235831). A local port's redirects are no longer
+  remembered by the browser, so a service changed from http to https (or back) is followed at once.
+
 ## 0.9.0
 
 - The remote.it device 1.1.0.20261103215803 (connectd-go 5.6.1.20261103215803). Upgrades hand over without a gap:

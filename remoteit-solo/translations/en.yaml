@@ -15,3 +15,8 @@ configuration:
     description: >-
       Let the portal open connections to any port on any host this machine reaches, not only the services you add.
       Off by default.
+  console:
+    name: Console
+    description: >-
+      Let the people who manage this device open a terminal on it from the portal, and an AI run commands on it: a shell
+      in this add-on's container, as root, on the host's network. On by default.
