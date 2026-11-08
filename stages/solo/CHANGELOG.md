@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.1
+
+- The console can be turned on: the device now has remote.it's release keys, which it checks the console's download
+  against. Under 0.10.0 turning it on was refused ("this install carries no release key").
+
 ## 0.10.0
 
 - The console is on: whoever manages the device can open a terminal on it from the portal, and an AI given the device

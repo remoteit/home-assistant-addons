@@ -1,6 +1,6 @@
 #!/bin/sh
 # Fetch the remote.it device for this machine from solo's downloads and lay it out as the device image does
-# (/usr/lib/remoteit-device: connectd, stages/, BUILD, default-stage, entrypoint, healthcheck) with the add-on's panel
+# (/usr/lib/remoteit-device: connectd, stages/, BUILD, release-keys, default-stage, entrypoint, healthcheck) with the add-on's panel
 # beside them (remoteit-panel) — run by the Dockerfile while Supervisor builds the add-on on the Home Assistant machine.
 # Two packages of one build, both named by its manifest: the device's tarball (tar-<arch>) and the container pieces
 # (container-<arch>: remoteit-device's container/ entrypoint and healthcheck, and container/panel built).
@@ -62,16 +62,18 @@ get() {
   find "$tmp/$1" -mindepth 1 -maxdepth 1 -type d | head -n1
 }
 
-# The device: connectd, its stages and BUILD.
+# The device: connectd, its stages, BUILD, and the release keys the apps' manifests (the console) must be signed by —
+# without them the device installs no app.
 pkgdir=$(get "tar-$tar_arch")
-[ -x "$pkgdir/connectd" ] && [ -d "$pkgdir/stages" ] && [ -f "$pkgdir/BUILD" ] || fail "tar-$tar_arch is not a device package"
+[ -x "$pkgdir/connectd" ] && [ -d "$pkgdir/stages" ] && [ -f "$pkgdir/BUILD" ] && [ -s "$pkgdir/release-keys" ] ||
+  fail "tar-$tar_arch is not a device package"
 # The device image's pieces, built with it: its entrypoint and healthcheck (remoteit-device container/) and the panel.
 cdir=$(get "container-$tar_arch")
 [ -x "$cdir/entrypoint" ] && [ -x "$cdir/healthcheck" ] && [ -x "$cdir/remoteit-panel" ] ||
   fail "container-$tar_arch does not hold the entrypoint, healthcheck and panel"
 
 mkdir -p "$dest"
-cp "$pkgdir/connectd" "$cdir/entrypoint" "$cdir/healthcheck" "$cdir/remoteit-panel" "$dest/"
+cp "$pkgdir/connectd" "$pkgdir/release-keys" "$cdir/entrypoint" "$cdir/healthcheck" "$cdir/remoteit-panel" "$dest/"
 cp -R "$pkgdir/stages" "$dest/stages"
 # What the package is, as the device image's BUILD says it: connectd reports it. The format is the image's.
 sed 's/^format .*/format container/' "$pkgdir/BUILD" > "$dest/BUILD"
