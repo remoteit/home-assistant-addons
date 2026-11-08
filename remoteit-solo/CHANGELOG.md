@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.2
+
+- The console can be turned on: the device now finds the release keys 0.10.1 laid in, which it checks the console's
+  download against. Under 0.10.0 and 0.10.1 turning it on was refused ("this install carries no release key").
+
 ## 0.10.1
 
 - The console can be turned on: the device now has remote.it's release keys, which it checks the console's download

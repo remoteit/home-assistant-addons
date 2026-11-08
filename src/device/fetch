@@ -1,6 +1,6 @@
 #!/bin/sh
 # Fetch the remote.it device for this machine from @@STAGE@@'s downloads and lay it out as the device image does
-# (/usr/lib/remoteit-device: connectd, stages/, BUILD, release-keys, default-stage, entrypoint, healthcheck) with the add-on's panel
+# (/usr/lib/remoteit-device: connectd, stages/, BUILD, FORMAT, release-keys, default-stage, entrypoint, healthcheck) with the add-on's panel
 # beside them (remoteit-panel) — run by the Dockerfile while Supervisor builds the add-on on the Home Assistant machine.
 # Two packages of one build, both named by its manifest: the device's tarball (tar-<arch>) and the container pieces
 # (container-<arch>: remoteit-device's container/ entrypoint and healthcheck, and container/panel built).
@@ -78,5 +78,8 @@ cp -R "$pkgdir/stages" "$dest/stages"
 # What the package is, as the device image's BUILD says it: connectd reports it. The format is the image's.
 sed 's/^format .*/format container/' "$pkgdir/BUILD" > "$dest/BUILD"
 grep -q '^format ' "$dest/BUILD" || echo 'format container' >> "$dest/BUILD"
+# FORMAT says a package is installed here: the device then takes this directory as its own (its release keys, which
+# the apps it installs are checked against), not a copy beside its state, which a container has none of.
+echo container > "$dest/FORMAT"
 echo @@STAGE@@ > "$dest/default-stage"
 echo "fetch: remote.it device $version ($(sed -n 's/^connectd //p' "$dest/BUILD")) for $arch"
