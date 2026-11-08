@@ -1,0 +1,20 @@
+#!/bin/sh
+# `ha`, Home Assistant's CLI (home-assistant/cli), with Supervisor's token — when the add-on's console_admin option is
+# on. run.sh keeps the token for root alone, so the console's own accounts come through sudo, which console_admin
+# grants them.
+set -u
+admin=/run/remoteit-addon
+if [ ! -d "$admin" ]; then
+  echo "ha: turn on the add-on's console_admin option (and restart the add-on) to manage Home Assistant from here" >&2
+  exit 1
+fi
+if [ "$(id -u)" != 0 ]; then
+  exec sudo -n "$0" "$@"
+fi
+if [ ! -s "$admin/supervisor_token" ]; then
+  echo "ha: Supervisor gave the add-on no token" >&2
+  exit 1
+fi
+SUPERVISOR_TOKEN=$(cat "$admin/supervisor_token")
+export SUPERVISOR_TOKEN
+exec /usr/lib/ha-cli/ha "$@"

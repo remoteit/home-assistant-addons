@@ -19,4 +19,11 @@ configuration:
     name: Console
     description: >-
       Let the people who manage this device open a terminal on it from the portal, and an AI run commands on it: a shell
-      in this add-on's container, as root, on the host's network. On by default.
+      in this add-on's container, on the host's network — the terminal as root, an AI's commands as your own account.
+      On by default.
+  console_admin:
+    name: Console manages Home Assistant
+    description: >-
+      Let the console's own accounts (an AI's commands) manage Home Assistant: sudo in the add-on's container, its
+      configuration at /config, and the `ha` command (restart Home Assistant, read its logs, check its configuration).
+      Off by default.

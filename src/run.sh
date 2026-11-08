@@ -27,4 +27,21 @@ ip -4 -o addr show 2>/dev/null | grep -q ' 172\.30\.32\.1/' && listen=172.30.32.
   done
 ) &
 
+# console_admin: the console's own accounts (group r3-admins, made by the console app as people and AIs sign in) may
+# manage Home Assistant — sudo, and `ha` with Supervisor's token, kept here for root alone. Off, they get neither.
+# The add-on's container starts afresh each time, so nothing is left from a start with it on.
+admin=/run/remoteit-addon
+rm -rf "$admin" /etc/sudoers.d/remoteit-console
+if [ "$(jq -r '.console_admin // false' /data/options.json 2>/dev/null)" = true ]; then
+  mkdir -m 0700 "$admin"
+  if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+    (umask 077 && printf '%s' "$SUPERVISOR_TOKEN" > "$admin/supervisor_token")
+  else
+    echo "remoteit-device: console_admin: Supervisor gave no token, so ha cannot reach it"
+  fi
+  printf '%%r3-admins ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/remoteit-console
+  chmod 0440 /etc/sudoers.d/remoteit-console
+  echo "remoteit-device: console_admin: the console's accounts may use sudo and ha"
+fi
+
 exec /usr/lib/remoteit-device/entrypoint

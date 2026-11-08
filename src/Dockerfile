@@ -3,10 +3,12 @@
 # The remote.it add-on, built by Supervisor on the Home Assistant machine itself: Home Assistant's public base image,
 # the remote.it device fetched from @@STAGE@@'s downloads and checked against @@STAGE@@'s release key (device/fetch) — with
 # it the device image's entrypoint and healthcheck and the add-on's panel, built and released with the device
-# (remoteit-device container/) — and the add-on's start script. Nothing private: no registry login, no token.
+# (remoteit-device container/) — Home Assistant's `ha` CLI and sudo for the console_admin option, and the add-on's
+# start script. Nothing private: no registry login, no token.
 #
 # BUILD_FROM and BUILD_ARCH are Supervisor's (build.yaml's base for the machine's arch); DEVICE_VERSION is the device
-# build to fetch — one in @@DOWNLOADS@@/<version>/.
+# build to fetch — one in @@DOWNLOADS@@/<version>/. CLI_VERSION is the home-assistant/cli release; a new one needs its
+# binaries' SHA-256 below.
 ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:3.24-2026.10.0
 
 # The device: downloaded and checked here, so the image it is laid into carries neither curl's work nor the key.
@@ -17,10 +19,28 @@ RUN apk add --no-cache curl jq openssl
 COPY device/fetch device/release-keys /fetch/
 RUN /fetch/fetch "${DEVICE_VERSION}" "${BUILD_ARCH}" /usr/lib/remoteit-device
 
+# Home Assistant's CLI: its release's binary for this arch, checked against the SHA-256 pinned here.
+FROM ${BUILD_FROM} AS cli
+ARG BUILD_ARCH
+ARG CLI_VERSION=5.6.0
+RUN set -eu; \
+    case "${BUILD_ARCH}" in \
+      aarch64) sha=4ecdbd67002defbf96e4668e62f631e9767b92d18e1ce54bfee6ddd040c20e73 ;; \
+      amd64) sha=9d259c700bfcd45b6a793709e1fcfd304a595624dda10cfa5edde66f0b8a9656 ;; \
+      *) echo "cli: no ha for ${BUILD_ARCH}" >&2; exit 1 ;; \
+    esac; \
+    apk add --no-cache curl; \
+    curl -fsSL --retry 3 -o /ha "https://github.com/home-assistant/cli/releases/download/${CLI_VERSION}/ha_${BUILD_ARCH}"; \
+    echo "${sha}  /ha" | sha256sum -c -; \
+    chmod 0755 /ha
+
 FROM ${BUILD_FROM}
 ARG BUILD_VERSION
 ARG BUILD_ARCH
+RUN apk add --no-cache sudo
 COPY --from=device /usr/lib/remoteit-device/ /usr/lib/remoteit-device/
+COPY --from=cli /ha /usr/lib/ha-cli/ha
+COPY ha /usr/bin/ha
 COPY run.sh /usr/lib/remoteit-device/addon-run
 # The key in the add-on's /data — set here, not only in run.sh, for the HEALTHCHECK to find it too.
 ENV R3_DEVICE_STATE=/data/remoteit-device

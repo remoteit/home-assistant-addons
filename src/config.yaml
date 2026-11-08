@@ -16,17 +16,28 @@ ingress: true
 ingress_port: 29190
 panel_icon: mdi:remote-desktop
 panel_title: remote.it
-# Supervisor's /core/info: the port Home Assistant serves its UI on, and whether it serves TLS.
+# Supervisor's /core/info: the port Home Assistant serves its UI on, and whether it serves TLS. And, with the
+# console_admin option, `ha` in the console: the homeassistant role reaches Home Assistant's core (restart, logs,
+# check the configuration), not other add-ons or the host.
 hassio_api: true
+hassio_role: homeassistant
+# Home Assistant's configuration, writable, at /config: for the console with console_admin (custom integrations,
+# configuration files). The console's root terminal reaches it whether or not console_admin is on.
+map:
+  - type: homeassistant_config
+    read_only: false
+    path: /config
 options:
   registration_code: ""
   device_name: Home Assistant
   stage: @@STAGE@@
   any_port: false
   console: true
+  console_admin: false
 schema:
   registration_code: password?
   device_name: str?
   stage: list(@@STAGE@@)
   any_port: bool
   console: bool
+  console_admin: bool

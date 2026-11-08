@@ -81,17 +81,36 @@ without a service for each) is off unless you turn on the `any_port` option.
 | `stage` | remote.it's environment: `solo` |
 | `any_port` | let the portal open connections to any port on any host this machine reaches (off) |
 | `console` | let the portal open a terminal on the device, and an AI run commands there (on) |
+| `console_admin` | let the console's own accounts manage Home Assistant: sudo, `/config`, and `ha` (off) |
 
 ## The console
 
 The device's console is on: whoever manages the device in the portal can open a terminal on it, and an AI given the
-device can run commands there. It is a shell in this add-on's container, as root, on the host's network — not Home
-Assistant OS itself: it reaches what the add-on reaches (the machines on your network, Home Assistant on 127.0.0.1),
-and changes made in it outside `/data` last only until the add-on restarts. The console runs its own OpenSSH, installed
-by the device; no SSH port is opened.
+device can run commands there. It is a shell in this add-on's container, on the host's network — not Home Assistant OS
+itself: it reaches what the add-on reaches (the machines on your network, Home Assistant on 127.0.0.1, and Home
+Assistant's configuration at `/config`), and changes made in it outside `/data` and `/config` last only until the
+add-on restarts. The portal's terminal is root there; an AI's commands run as your own account on the device
+(`r3-<you>`, in the group `r3-admins`). The console runs its own OpenSSH, installed by the device; no SSH port is
+opened.
 
 Turn it off with the `console` option (and restart the add-on): the portal cannot turn it back on while the option is
 off. With the option on, it can be turned off and on in the portal (the device's **Apps**).
+
+### Managing Home Assistant from the console
+
+With the `console_admin` option on (and the add-on restarted), the console's own accounts — an AI's commands — may
+manage Home Assistant as the Terminal & SSH add-on does:
+
+- **sudo**, without a password, for the group `r3-admins`;
+- **Home Assistant's configuration** at `/config`, writable (with sudo): `configuration.yaml`, `custom_components/`;
+- **`ha`**, Home Assistant's CLI (`ha core restart`, `ha core logs`, `ha core check`), with the add-on's Supervisor
+  role, `homeassistant`: Home Assistant's core, not other add-ons or the host.
+
+Off, they get none of these. The add-on is given `/config` and its Supervisor role either way (Home Assistant fixes
+both when it installs the add-on), so **the portal's root terminal reaches Home Assistant's configuration whether or
+not `console_admin` is on**: `/config` holds `secrets.yaml` and the tokens of Home Assistant's integrations, so whoever
+manages the device in the portal can act as Home Assistant's administrator. Turn the `console` option off if they
+should not.
 
 ## What the device does not do here
 

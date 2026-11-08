@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0
+
+- The console can manage Home Assistant: the new `console_admin` option (off) gives the console's own accounts — an
+  AI's commands — passwordless sudo, Home Assistant's configuration at `/config`, and `ha`, Home Assistant's CLI
+  5.6.0 (`ha core restart`, `ha core logs`, `ha core check`).
+- The add-on is given Home Assistant's configuration, writable, at `/config`, and Supervisor's `homeassistant` role
+  (Home Assistant's core, not other add-ons or the host). The portal's root terminal reaches both whether or not
+  `console_admin` is on.
+- The docs say who the console runs as: the portal's terminal as root, an AI's commands as your own account.
+
 ## 0.10.3
 
 - The remote.it device 1.1.0.20261108005210: commands an AI runs through the console as your own account (not root)
