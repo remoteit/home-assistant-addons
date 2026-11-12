@@ -12,6 +12,14 @@ arch:
 startup: services
 # The host's network: Home Assistant's own UI on 127.0.0.1, and the machines on the home network by their addresses.
 host_network: true
+# The tun device and NET_ADMIN alone — not full_access — for an exit, the subnet and an exit node: the device's
+# interfaces and an exit's routes (on the host's network, so the machine's). NET_ADMIN lowers Home Assistant's
+# security rating by one (6 to 5); the device costs nothing. Without the device the entrypoint turns subnet_control
+# and exit_node_control off.
+privileged:
+  - NET_ADMIN
+devices:
+  - /dev/net/tun
 ingress: true
 ingress_port: 29190
 panel_icon: mdi:remote-desktop

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.0
+
+- The device can use an exit: choose one for it in the portal, and the Home Assistant machine's internet traffic — Home
+  Assistant's, Supervisor's and every add-on's, as the add-on runs on the host's network — goes out through it, your
+  home network's own addresses staying direct. While the exit is down the traffic is held, not sent the usual way.
+- The add-on now asks Home Assistant for `NET_ADMIN` and the tun device (`/dev/net/tun`) — the capability and the
+  device alone, not full hardware access — and carries iproute2's `ip`, which an exit's routes need (the base image's
+  busybox `ip` refuses them). `NET_ADMIN` lowers the add-on's security rating from 6 to 5. With them the portal may
+  also turn on the device's subnet or make the machine an exit for others; both stay off until you do.
+- The remote.it device 1.1.0.20261112045329 (connectd-go 5.6.1.20261112045329): an exit whose routes cannot be set is
+  said to have failed, and why, rather than shown as up while the traffic goes out directly.
+
 ## 0.11.0
 
 - The console can manage Home Assistant: the new `console_admin` option (off) gives the console's own accounts — an

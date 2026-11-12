@@ -79,6 +79,37 @@ device connects to it from the Home Assistant machine, so whatever that machine 
 The device does nothing more than the services you add: **any port** (connections to any host and port it reaches,
 without a service for each) is off unless you turn on the `any_port` option.
 
+## Using an exit
+
+The device can send this machine's internet traffic out through a remote.it exit: choose an exit for it in the portal
+(the device's exit, Protect). It is the **whole Home Assistant machine's** traffic, not only the add-on's — the add-on
+runs on the host's network, so the exit's routes are the host's: Home Assistant itself, Supervisor and every other
+add-on go out through the exit too, and only your home network's own addresses stay direct.
+
+While the exit is on and its connection is down, the machine's internet traffic is **held**, not sent the usual way
+(a kill switch); your home network stays reachable. Turning the exit off in the portal, or stopping the add-on, gives
+the usual way back. Should the add-on end without giving it back (killed, not stopped), the traffic stays held until
+the add-on starts again, `remoteit-device exit off` in its console, or the machine restarts.
+
+The device says when an exit cannot carry the traffic here — its state *failed*, and why — rather than claim it is up.
+
+The same device and capability let the portal turn on the device's subnet, or make this machine an exit for others;
+both are off until you do.
+
+## What the add-on is allowed
+
+Home Assistant gives the add-on, and shows on its Info page:
+
+- **The host's network** (`host_network`): Home Assistant's UI on 127.0.0.1 and the machines on your network.
+- **`NET_ADMIN`** (`privileged`) and the **tun device** (`devices: /dev/net/tun`): the device's own network interfaces
+  and an exit's routes — on the host's network, so the machine's routes. Only this capability and this device, not
+  full hardware access.
+- **Supervisor's `homeassistant` role** and **Home Assistant's configuration** at `/config` (the console, above).
+
+Home Assistant's security rating for the add-on is **5** (of 8): 5 to start, +2 for ingress (the panel), −1 for the
+host's network, −1 for `NET_ADMIN`; the tun device and the `homeassistant` role cost nothing. Before 0.12.0, without
+`NET_ADMIN`, it was 6.
+
 ## Options
 
 | Option | |
@@ -121,7 +152,6 @@ should not.
 
 ## What the device does not do here
 
-- **No subnet and no exit node**: they need a network device the add-on is not given.
 - **No proxy role.**
 - **No remote updates**: the device is updated with the add-on (the portal shows its updates as off).
 

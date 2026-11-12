@@ -9,6 +9,7 @@ public address.
 - **Home Assistant's web UI** as a remote.it service on this machine.
 - **A gateway to your home network**: services pointing at your router, cameras, NAS — any machine Home Assistant's
   host reaches.
+- **An exit**: the machine's internet traffic out through a remote.it exit you choose in the portal.
 - A **remote.it panel** in the sidebar: the device's name, state and UID, a link to it in the portal, and a field for
   its registration code.
 

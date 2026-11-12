@@ -3,8 +3,8 @@
 # The remote.it add-on, built by Supervisor on the Home Assistant machine itself: Home Assistant's public base image,
 # the remote.it device fetched from @@STAGE@@'s downloads and checked against @@STAGE@@'s release key (device/fetch) — with
 # it the device image's entrypoint and healthcheck and the add-on's panel, built and released with the device
-# (remoteit-device container/) — Home Assistant's `ha` CLI and sudo for the console_admin option, and the add-on's
-# start script. Nothing private: no registry login, no token.
+# (remoteit-device container/) — iproute2's `ip` for an exit's routes, Home Assistant's `ha` CLI and sudo for the
+# console_admin option, and the add-on's start script. Nothing private: no registry login, no token.
 #
 # BUILD_FROM and BUILD_ARCH are Supervisor's (build.yaml's base for the machine's arch); DEVICE_VERSION is the device
 # build to fetch — one in @@DOWNLOADS@@/<version>/. CLI_VERSION is the home-assistant/cli release; a new one needs its
@@ -37,7 +37,11 @@ RUN set -eu; \
 FROM ${BUILD_FROM}
 ARG BUILD_VERSION
 ARG BUILD_ARCH
-RUN apk add --no-cache sudo
+# iproute2's `ip` (iproute2-minimal: ip alone, no tc or ss) in place of busybox's, which refuses an exit's routes —
+# policy rules with `not fwmark`, `suppress_prefixlength` and a table numbered 29801 (connectd
+# golang/subnet/exit_route_linux.go) — as the device's own image carries it (remoteit-device container/Dockerfile).
+# Supervisor builds on the machine itself, so apk runs for its own arch here.
+RUN apk add --no-cache iproute2-minimal sudo && test -x /sbin/ip && test ! -L /sbin/ip
 COPY --from=device /usr/lib/remoteit-device/ /usr/lib/remoteit-device/
 COPY --from=cli /ha /usr/lib/ha-cli/ha
 COPY ha /usr/bin/ha
