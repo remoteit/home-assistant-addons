@@ -1,0 +1,128 @@
+#!/bin/sh
+# Move a stage's add-on to the device release its downloads say is stable's current: DEVICE_VERSION set, ADDON_VERSION's
+# patch number bumped, a CHANGELOG entry from the release's manifest, and bin/gen run. Commits nothing — the workflow
+# (.github/workflows/follow-current.yml) checks, lints and pushes what this leaves.
+#
+#   bin/follow-current [version]   follow <DOWNLOADS>/channels/stable.json, or move to <version>
+#
+# stable.json is graphql's {version, manifest, promotedAt}, written on every promotion. Until it is published the
+# top-level <DOWNLOADS>/manifest.json stands in: what new installs get, stable's current or an override newer than it.
+# Never moves backwards: a release older than DEVICE_VERSION (by its date stamp) is refused — a failure when asked
+# for by name, a warning when followed, so a demoted current does not fail every run.
+#
+# With GITHUB_OUTPUT set, writes changed (true|false), version, addon_version and message to it.
+set -eu
+cd "$(dirname "$0")/.."
+stage_dir=${STAGE_DIR:-stages/solo}
+env=$stage_dir/stage.env
+changelog=$stage_dir/CHANGELOG.md
+fail() { echo "follow-current: $*" >&2; exit 1; }
+out() { [ -z "${GITHUB_OUTPUT:-}" ] || echo "$1=$2" >> "$GITHUB_OUTPUT"; }
+
+value() { (. "./$env" && eval "printf '%s' \"\${$1-}\""); } # value <NAME>: its value in stage.env
+downloads=$(value DOWNLOADS)
+current=$(value DEVICE_VERSION)
+addon=$(value ADDON_VERSION)
+[ -n "$downloads" ] && [ -n "$current" ] && [ -n "$addon" ] || fail "$env lacks DOWNLOADS, DEVICE_VERSION or ADDON_VERSION"
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+requested=${1:-}
+if [ -n "$requested" ]; then
+  version=$requested
+  from="asked for"
+else
+  # A missing object is a 403 from the downloads' CloudFront (no list permission), not a 404.
+  code=$(curl -sS --retry 3 -o "$tmp/stable.json" -w '%{http_code}' "$downloads/channels/stable.json") ||
+    fail "cannot fetch $downloads/channels/stable.json"
+  case $code in
+    200)
+      version=$(jq -r '.version // empty' "$tmp/stable.json")
+      from="stable's current ($downloads/channels/stable.json)" ;;
+    403|404)
+      curl -fsSL --retry 3 -o "$tmp/top.json" "$downloads/manifest.json" || fail "cannot fetch $downloads/manifest.json"
+      version=$(jq -r '.version // empty' "$tmp/top.json")
+      from="what new installs get ($downloads/manifest.json: no channels/stable.json yet)" ;;
+    *) fail "$downloads/channels/stable.json: HTTP $code" ;;
+  esac
+fi
+
+stamp() { echo "$1" | sed -n 's/^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.\([0-9]\{14\}\)$/\1/p'; }
+new_stamp=$(stamp "$version")
+old_stamp=$(stamp "$current")
+[ -n "$new_stamp" ] || fail "'$version' is not a device version (a.b.c.<14-digit date stamp>)"
+[ -n "$old_stamp" ] || fail "$env's DEVICE_VERSION '$current' is not a device version"
+echo "follow-current: $version is $from; the add-on has $current" >&2
+
+out version "$version"
+if [ "$version" = "$current" ]; then
+  echo "follow-current: $(value ADDON_DIR) $addon already has $version" >&2
+  out changed false
+  exit 0
+fi
+if [ "$new_stamp" -le "$old_stamp" ]; then
+  msg="$version is not newer than the add-on's $current: not moving backwards"
+  [ -z "$requested" ] || fail "$msg"
+  echo "::warning::follow-current: $msg"
+  out changed false
+  exit 0
+fi
+
+# The release must carry what the add-on's build fetches for both of Home Assistant's arches (device/fetch checks
+# its signature and SHA-256s when Supervisor builds it).
+curl -fsSL --retry 3 -o "$tmp/manifest.json" "$downloads/$version/manifest.json" ||
+  fail "cannot fetch $downloads/$version/manifest.json"
+[ "$(jq -r .version "$tmp/manifest.json")" = "$version" ] || fail "$downloads/$version/manifest.json is not $version's"
+for k in container-arm64 container-amd64 tar-arm64 tar-amd64; do
+  jq -e --arg k "$k" '(.[$k] // "") != "" and (.[$k + "_sha256"] // "") != ""' "$tmp/manifest.json" >/dev/null ||
+    fail "$version's manifest has no $k package: the add-on cannot be built from it"
+done
+
+case $addon in
+  *[!0-9.]*|*..*|.*|*.) fail "ADDON_VERSION '$addon' is not major.minor.patch" ;;
+esac
+next=$(echo "$addon" | awk -F. 'NF == 3 { print $1 "." $2 "." $3 + 1 }')
+[ -n "$next" ] || fail "ADDON_VERSION '$addon' is not major.minor.patch"
+
+set_value() { # set_value <NAME> <value>: that line of stage.env, which must have it
+  awk -v n="$1" -v v="$2" 'index($0, n "=") == 1 { $0 = n "=" v; done = 1 } { print } END { exit !done }' \
+    "$env" > "$tmp/stage.env" || fail "$env has no $1="
+  cat "$tmp/stage.env" > "$env"
+}
+set_value DEVICE_VERSION "$version"
+set_value ADDON_VERSION "$next"
+
+connectd=$(jq -r '.connectd // empty' "$tmp/manifest.json")
+commit=$(jq -r '.connectd_commit // empty' "$tmp/manifest.json")
+built=${connectd:+connectd-go $connectd}
+[ -z "$commit" ] || built="${built:+$built, }connectd-source $commit"
+stage=$(value STAGE)
+entry="- The remote.it device $version${built:+ ($built)}: $stage's current release, which the add-on follows on its own."
+{
+  sed -n '1,/^## /{/^## /!p;}' "$changelog"
+  printf '## %s\n\n' "$next"
+  # Wrapped at 120 columns like the entries before it, continuation lines indented under the bullet's text.
+  echo "$entry" | awk '{
+    line = ""
+    for (i = 1; i <= NF; i++) {
+      if (line != "" && length(line) + 1 + length($i) > 120) { print line; line = "  " $i }
+      else line = line == "" ? $i : line " " $i
+    }
+    print line
+  }'
+  echo
+  sed -n '/^## /,$p' "$changelog"
+} > "$tmp/CHANGELOG.md"
+grep -q "^## $next\$" "$tmp/CHANGELOG.md" && [ "$(grep -c '^## ' "$tmp/CHANGELOG.md")" -gt 1 ] ||
+  fail "$changelog: cannot place the entry before its first '## ' heading"
+cat "$tmp/CHANGELOG.md" > "$changelog"
+
+bin/gen >&2
+
+dir=$(value ADDON_DIR)
+message="$dir $next: the remote.it device $version${commit:+ (connectd-source $commit)}, $stage's current release (bin/follow-current)"
+echo "follow-current: $message" >&2
+out changed true
+out addon_version "$next"
+out message "$message"

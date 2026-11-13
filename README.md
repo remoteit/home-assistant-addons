@@ -54,13 +54,32 @@ branch, so each has its own folder rather than its own branch.
   CI (`.github/workflows/check.yaml`) runs it, and Frenck's add-on linter on each folder — add a new stage's folder to
   its matrix.
 
-A newer device build for a stage: `DEVICE_VERSION` in its `stage.env` (a version in its downloads whose manifest has
-the container pieces for both of Home Assistant's arches: `container-arm64` and `container-amd64`), its `ADDON_VERSION`, a
-CHANGELOG entry, and `bin/gen`. A change to the panel, the entrypoint or the healthcheck is a remoteit-device change and
-a new device build.
+## Following the device's releases
+
+The solo add-on follows stable's current on its own. Every 10 minutes `.github/workflows/follow-current.yml` runs
+`bin/follow-current`, which reads `<DOWNLOADS>/channels/stable.json` (graphql writes it on every promotion; until it is
+published, the top-level `<DOWNLOADS>/manifest.json` stands in). When that version is not `DEVICE_VERSION` in
+`stages/solo/stage.env`, the script:
+
+- requires the version's manifest to have the container pieces and tarballs for both of Home Assistant's arches
+  (`container-arm64`, `container-amd64`, `tar-arm64`, `tar-amd64`);
+- sets `DEVICE_VERSION`, bumps `ADDON_VERSION`'s patch number, and adds a CHANGELOG entry from the manifest (the
+  version, connectd and its commit);
+- runs `bin/gen`.
+
+The workflow then runs `bin/gen --check`, `device/fetch` for both arches (the signature and SHA-256s Supervisor's build
+checks), and the add-on linter. It then commits as github-actions and pushes to `main`, using `GITHUB_TOKEN` only.
+That push starts no other workflow, so `check.yaml` does not run on it; the same checks ran before the push.
+It never moves backwards: a release older than `DEVICE_VERSION` (by its date stamp) is refused.
+
+To move by hand, either run the workflow with a `version` (**Actions → follow-current → Run workflow**), or run
+`bin/follow-current [version]` locally, commit and push. To say more than the generated line, edit the new CHANGELOG
+entry before pushing.
+A change to the panel, the entrypoint or the healthcheck is a remoteit-device change and a new device build.
 
 ## Checks
 
-- `bin/gen --check`, and Frenck's add-on linter (`frenck/action-app-linter` v2.21.1) on each folder.
+- `bin/gen --check`, and Frenck's add-on linter (`frenck/action-app-linter` v2.21.1) on each folder — on every push
+  and pull request (`check.yaml`), and in `follow-current.yml` before each bump it pushes.
 - `device/fetch` refuses a manifest signed by another key, a package whose SHA-256 differs from the manifest's, and an
   arch with no package.

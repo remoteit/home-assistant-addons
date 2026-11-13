@@ -1,0 +1,55 @@
+# The solo add-on follows stable's current: when graphql promotes a device release, bin/follow-current moves
+# stages/solo to it and this pushes the bump to main, which is what Home Assistant's store reads.
+# A push made with GITHUB_TOKEN starts no other workflow, so check.yaml's checks run here before the push.
+name: follow-current
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: A device version to move to (default stable's current); never one older than the add-on's
+        required: false
+        default: ''
+permissions:
+  contents: write
+concurrency:
+  group: follow-current
+  cancel-in-progress: false
+jobs:
+  follow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - id: follow
+        env:
+          VERSION: ${{ inputs.version }}
+        run: bin/follow-current ${VERSION:+"$VERSION"}
+      - if: steps.follow.outputs.changed == 'true'
+        run: bin/gen --check
+      # What Supervisor's build does on the Home Assistant machine: the manifest signed by the stage's release key,
+      # each package matching its SHA-256 and laid out — for both of Home Assistant's arches.
+      - if: steps.follow.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.follow.outputs.version }}
+        run: |
+          for arch in amd64 aarch64; do
+            remoteit-solo/device/fetch "$VERSION" "$arch" "$RUNNER_TEMP/fetch-$arch"
+            grep -qx 'updated_by home-assistant' "$RUNNER_TEMP/fetch-$arch/BUILD"
+          done
+      - if: steps.follow.outputs.changed == 'true'
+        uses: frenck/action-app-linter@v2.21.1
+        with:
+          path: remoteit-solo
+      - if: steps.follow.outputs.changed == 'true'
+        env:
+          MESSAGE: ${{ steps.follow.outputs.message }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A stages remoteit-solo
+          git commit -q -m "$MESSAGE"
+          git push origin HEAD:main
+          git log -1 --stat

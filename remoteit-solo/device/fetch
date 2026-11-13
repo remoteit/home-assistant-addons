@@ -75,9 +75,11 @@ cdir=$(get "container-$tar_arch")
 mkdir -p "$dest"
 cp "$pkgdir/connectd" "$pkgdir/release-keys" "$cdir/entrypoint" "$cdir/healthcheck" "$cdir/remoteit-panel" "$dest/"
 cp -R "$pkgdir/stages" "$dest/stages"
-# What the package is, as the device image's BUILD says it: connectd reports it. The format is the image's.
-sed 's/^format .*/format container/' "$pkgdir/BUILD" > "$dest/BUILD"
+# What the package is, as the device image's BUILD says it: connectd reports it. The format is the image's; who
+# upgrades it is Home Assistant (a new add-on version), not the device — the tarball's BUILD says remoteit.
+sed -e 's/^format .*/format container/' -e '/^updated_by /d' "$pkgdir/BUILD" > "$dest/BUILD"
 grep -q '^format ' "$dest/BUILD" || echo 'format container' >> "$dest/BUILD"
+echo 'updated_by home-assistant' >> "$dest/BUILD"
 # FORMAT says a package is installed here: the device then takes this directory as its own (its release keys, which
 # the apps it installs are checked against), not a copy beside its state, which a container has none of.
 echo container > "$dest/FORMAT"
