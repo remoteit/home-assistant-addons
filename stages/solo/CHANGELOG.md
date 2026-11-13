@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.1
+
+- The remote.it device 1.1.0.20261113022007 (connectd-go 5.6.1.20261113022007, connectd-source 74b1b158c6b9): solo's
+  current release, which the add-on follows on its own.
+
 ## 0.12.0
 
 - The device can use an exit: choose one for it in the portal, and the Home Assistant machine's internet traffic — Home
