@@ -8,6 +8,8 @@
 # In src/, @@NAME@@ is the stage's value of NAME (an unknown name fails), and the lines between a line holding
 # `@@if test@@` (or `@@if stable@@`) and one holding `@@end@@` are kept only for a test build (TEST set) — or only for
 # a supported one — the marker lines themselves dropped. Files that are not text (the images) are copied as they are.
+# A file named <name>.in is written as <name>: src/config.yaml.in, which Supervisor would otherwise find while it
+# scans the repository and fail to read ("found character that cannot start any token": the @@ placeholders).
 set -eu
 cd "$(dirname "$0")/.."
 check=
@@ -59,9 +61,10 @@ for env in stages/*/stage.env; do
     out=$tmp/$ADDON_DIR
     mkdir -p "$out"
     (cd src && find . -type f ! -name .DS_Store) | sed 's,^\./,,' | sort | while read -r f; do
-      mkdir -p "$out/$(dirname "$f")"
-      cp -p "src/$f" "$out/$f"
-      case $f in *.png) ;; *) render "src/$f" "$out/$f" ;; esac
+      to=${f%.in}
+      mkdir -p "$out/$(dirname "$to")"
+      cp -p "src/$f" "$out/$to"
+      case $f in *.png) ;; *) render "src/$f" "$out/$to" ;; esac
     done
     cp "$stage_dir/release-keys" "$out/device/release-keys"
     cp "$stage_dir/CHANGELOG.md" "$out/CHANGELOG.md"
