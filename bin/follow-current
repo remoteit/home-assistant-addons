@@ -4,11 +4,14 @@
 # (.github/workflows/follow-current.yml) checks, lints and pushes what this leaves.
 #
 #   bin/follow-current [version]   follow <DOWNLOADS>/channels/stable.json, or move to <version>
+#   ROLLBACK=1 bin/follow-current <version>   move back to an older <version>, on purpose
 #
-# stable.json is graphql's {version, manifest, promotedAt}, written on every promotion. Until it is published the
+# stable.json is graphql's {version, rollback, manifest, promotedAt}, written on every promotion. Until it is published the
 # top-level <DOWNLOADS>/manifest.json stands in: what new installs get, stable's current or an override newer than it.
-# Never moves backwards: a release older than DEVICE_VERSION (by its date stamp) is refused — a failure when asked
-# for by name, a warning when followed, so a demoted current does not fail every run.
+# Never moves backwards unless it is a rollback: stable.json's rollback (an older release made current again on
+# purpose), or ROLLBACK=1 for a version asked for. Any other release older than DEVICE_VERSION (by its date stamp) is
+# refused — a failure when asked for by name, a warning when followed, so a demoted current does not fail every run.
+# A rollback still bumps ADDON_VERSION forwards: Home Assistant offers an update only for a higher add-on version.
 #
 # With GITHUB_OUTPUT set, writes changed (true|false), version, addon_version and message to it.
 set -eu
@@ -29,7 +32,9 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 requested=${1:-}
+rollback=false
 if [ -n "$requested" ]; then
+  [ "${ROLLBACK:-}" != 1 ] || rollback=true
   version=$requested
   from="asked for"
 else
@@ -39,6 +44,7 @@ else
   case $code in
     200)
       version=$(jq -r '.version // empty' "$tmp/stable.json")
+      rollback=$(jq -r '.rollback // false' "$tmp/stable.json")
       from="stable's current ($downloads/channels/stable.json)" ;;
     403|404)
       curl -fsSL --retry 3 -o "$tmp/top.json" "$downloads/manifest.json" || fail "cannot fetch $downloads/manifest.json"
@@ -61,7 +67,9 @@ if [ "$version" = "$current" ]; then
   out changed false
   exit 0
 fi
-if [ "$new_stamp" -le "$old_stamp" ]; then
+if [ "$new_stamp" -lt "$old_stamp" ] && [ "$rollback" = true ]; then
+  echo "follow-current: $version is older than the add-on's $current, a rollback: moving back" >&2
+elif [ "$new_stamp" -le "$old_stamp" ]; then
   msg="$version is not newer than the add-on's $current: not moving backwards"
   [ -z "$requested" ] || fail "$msg"
   echo "::warning::follow-current: $msg"
@@ -99,6 +107,8 @@ built=${connectd:+connectd-go $connectd}
 [ -z "$commit" ] || built="${built:+$built, }connectd-source $commit"
 stage=$(value STAGE)
 entry="- The remote.it device $version${built:+ ($built)}: $stage's current release, which the add-on follows on its own."
+[ "$rollback" != true ] || [ "$new_stamp" -ge "$old_stamp" ] ||
+  entry="- The remote.it device $version${built:+ ($built)}: back from $current, $stage's current again after a rollback."
 {
   sed -n '1,/^## /{/^## /!p;}' "$changelog"
   printf '## %s\n\n' "$next"

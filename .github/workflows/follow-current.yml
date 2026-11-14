@@ -8,9 +8,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: A device version to move to (default stable's current); never one older than the add-on's
+        description: A device version to move to (default stable's current); never one older than the add-on's unless rollback
         required: false
         default: ''
+      rollback:
+        description: The version is older than the add-on's, on purpose (a rollback)
+        type: boolean
+        default: false
 permissions:
   contents: write
 concurrency:
@@ -26,6 +30,7 @@ jobs:
       - id: follow
         env:
           VERSION: ${{ inputs.version }}
+          ROLLBACK: ${{ inputs.rollback && '1' || '' }}
         run: bin/follow-current ${VERSION:+"$VERSION"}
       - if: steps.follow.outputs.changed == 'true'
         run: bin/gen --check
