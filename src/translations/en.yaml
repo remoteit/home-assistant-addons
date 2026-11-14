@@ -27,3 +27,9 @@ configuration:
       Let the console's own accounts (an AI's commands) manage Home Assistant: sudo in the add-on's container, its
       configuration at /config, and the `ha` command (restart Home Assistant, read its logs, check its configuration).
       Off by default.
+  auto_update:
+    name: Update the device automatically
+    description: >-
+      Let the device take remote.it's releases itself, as soon as they are out, instead of waiting for an add-on update:
+      each new version starts beside the running one and takes over only once it is working, or the running one stays.
+      An add-on update newer than what the device took always wins. On by default.
