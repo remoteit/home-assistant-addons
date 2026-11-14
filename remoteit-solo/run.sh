@@ -44,4 +44,12 @@ if [ "$(jq -r '.console_admin // false' /data/options.json 2>/dev/null)" = true 
   echo "remoteit-device: console_admin: the console's accounts may use sudo and ha"
 fi
 
+# auto_update (on unless turned off): the device takes remote.it's releases itself, as a package install does — each
+# into /data, handed over to beside the one running, confirmed, or the one before kept (the image's
+# R3_DEVICE_SELF_UPDATE). An add-on update newer than what the device took runs as soon as it starts. Off, the device
+# is updated with the add-on alone.
+if [ "$(jq -r 'if .auto_update == false then "off" else "on" end' /data/options.json 2>/dev/null || echo on)" = on ]; then
+  export R3_DEVICE_SELF_UPDATE=1
+  echo "remoteit-device: auto_update: the device takes remote.it's releases itself"
+fi
 exec /usr/lib/remoteit-device/entrypoint

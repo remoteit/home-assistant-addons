@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.0
+
+- `auto_update`, on by default: the device takes remote.it's releases itself, as soon as they are out, instead of
+  waiting for an add-on update. Each new version starts beside the running one and takes over only once it works.
+  Turn it off to update the device with the add-on alone. An add-on update newer than what the device took always
+  wins.
+- The add-on runs without Docker's init (`init: false`): the device image's entrypoint is PID 1, as in the image itself,
+  which its self-update needs.
+
 ## 0.12.3
 
 - The remote.it device 1.1.0.20261114044939 (connectd-go 5.6.1.20261114044939, connectd-source e9b25cf3f4de): solo's

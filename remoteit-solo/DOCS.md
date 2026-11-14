@@ -113,6 +113,7 @@ host's network, −1 for `NET_ADMIN`; the tun device and the `homeassistant` rol
 | `any_port` | let the portal open connections to any port on any host this machine reaches (off) |
 | `console` | let the portal open a terminal on the device, and an AI run commands there (on) |
 | `console_admin` | let the console's own accounts manage Home Assistant: sudo, `/config`, and `ha` (off) |
+| `auto_update` | the device takes remote.it's releases itself, without waiting for an add-on update (on) |
 
 ## The console
 
@@ -146,7 +147,10 @@ should not.
 ## What the device does not do here
 
 - **No proxy role.**
-- **No remote updates**: the device is updated with the add-on (the portal shows its updates as off).
+- **Remote updates only with `auto_update`** (on by default): the device then takes remote.it's releases as they come
+  out, each one handed over to and confirmed, or the one before kept, and the portal shows it updated by remote.it.
+  Off, it is updated with the add-on alone, and the portal says so. Either way an add-on update newer than what the
+  device took runs as soon as the add-on starts.
 
 These are the device's local policy, which the portal cannot change.
 
