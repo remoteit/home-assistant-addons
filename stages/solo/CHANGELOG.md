@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.4
+
+- The device's catalogue keys are now copied into the add-on with its release keys, so apps from remote.it's catalogue
+  (the console) keep their delivery grants after the add-on updates.
+
 ## 0.13.3
 
 - The remote.it device 1.1.0.20261115015345 (connectd-go 5.6.1.20261115015345, connectd-source c2f91b7b2fd5): solo's
