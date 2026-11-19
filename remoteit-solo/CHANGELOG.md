@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.17
+
+- The remote.it device 1.1.0.20261119221142 (connectd-go 5.6.1.20261119221142, connectd-source c4907f70d00f): solo's
+  current release, which the add-on follows on its own.
+
 ## 0.13.16
 
 - The remote.it device 1.1.0.20261119202744 (connectd-go 5.6.1.20261119202744, connectd-source 6b5d4cd115e1): solo's
