@@ -43,6 +43,8 @@ options:
   device_name: Home Assistant
   stage: @@STAGE@@
   any_port: false
+  proxy_hosting: true
+  exit_hosting: true
   console: true
   console_admin: false
   auto_update: true
@@ -51,6 +53,8 @@ schema:
   device_name: str?
   stage: list(@@STAGE@@)
   any_port: bool
+  proxy_hosting: bool
+  exit_hosting: bool
   console: bool
   console_admin: bool
   auto_update: bool

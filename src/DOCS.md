@@ -76,8 +76,7 @@ Any service on this device may point at another machine on your network: in the 
 machine's address as its host — your router at `192.168.1.1` port 80 or 443, a camera's RTSP port, a NAS's web UI. The
 device connects to it from the Home Assistant machine, so whatever that machine reaches, you reach.
 
-The device does nothing more than the services you add: **any port** (connections to any host and port it reaches,
-without a service for each) is off unless you turn on the `any_port` option.
+**Any port** lets you connect to a port without defining a service for it. Turn on the `any_port` option to allow it.
 
 ## Using an exit
 
@@ -93,8 +92,14 @@ the add-on starts again, `remoteit-device exit off` in its console, or the machi
 
 The device says when an exit cannot carry the traffic here — its state *failed*, and why — rather than claim it is up.
 
-The same device and capability let the portal turn on the device's subnet, or make this machine an exit for others;
-both are off until you do.
+## Hosting a proxy or exit
+
+The portal can assign the device as a **proxy** for endpoints or add it to an **exit** to carry other devices' traffic.
+Both roles are allowed by default and activate when assigned. A proxy opens an HTTPS listener on the Home Assistant
+host, on port 443 by default.
+
+To block a role, turn off **Allow proxy hosting** or **Allow exit hosting** in the add-on configuration and restart
+the add-on. **Protect** and **Route through** control the Home Assistant host's own use of an exit.
 
 ## What the add-on is allowed
 
@@ -118,6 +123,8 @@ host's network, −1 for `NET_ADMIN`; the tun device and the `homeassistant` rol
 | `device_name` | the name the device registers with, unless the code names it (`Home Assistant`) |
 | `stage` | remote.it's environment: `@@STAGE@@` |
 | `any_port` | let the portal open connections to any port on any host this machine reaches (off) |
+| `proxy_hosting` | allow this device to host a proxy when assigned in the portal (on) |
+| `exit_hosting` | allow this device to host an exit when assigned in the portal (on) |
 | `console` | let the portal open a terminal on the device, and an AI run commands there (on) |
 | `console_admin` | let the console's own accounts manage Home Assistant: sudo, `/config`, and `ha` (off) |
 | `auto_update` | the device takes remote.it's releases itself, without waiting for an add-on update (on) |
