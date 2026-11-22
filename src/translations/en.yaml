@@ -15,6 +15,16 @@ configuration:
     description: >-
       Let the portal open connections to any port on any host this machine reaches, not only the services you add.
       Off by default.
+  proxy_hosting:
+    name: Allow proxy hosting
+    description: >-
+      Allow this device to serve endpoints when assigned as a proxy in the remote.it portal.
+      The HTTPS listener uses port 443 on the Home Assistant host by default. On by default.
+  exit_hosting:
+    name: Allow exit hosting
+    description: >-
+      Allow this device to carry traffic for others when assigned to an exit in the remote.it portal.
+      On by default.
   console:
     name: Console
     description: >-

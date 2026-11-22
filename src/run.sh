@@ -9,8 +9,20 @@ set -u
 export R3_DEVICE_STATE=/data/remoteit-device
 export R3_REGISTRATION_CODE_FILE=/data/registration_code
 export R3_REGISTRATION_RETRY=1
+options=/data/options.json
 # The options, the device's policy, and Home Assistant's own UI (Supervisor's /core/info): remoteit-panel env.
-eval "$(/usr/lib/remoteit-device/remoteit-panel env /data/options.json)"
+eval "$(/usr/lib/remoteit-device/remoteit-panel env "$options")"
+
+# The bundled panel unconditionally denies proxy hosting. The add-on options govern both hosting roles.
+R3_DEVICE_POLICY=$(
+  printf '%s\n' "${R3_DEVICE_POLICY:-}" | tr ';' '\n' | sed '/^proxy_control off$/d'
+  jq -r '
+    if .proxy_hosting == false then "proxy_control off" else empty end,
+    if .exit_hosting == false then "exit_node_control off" else empty end
+  ' "$options" 2>/dev/null
+)
+export R3_DEVICE_POLICY
+
 : "${HA_PORT:=8123}" "${HA_SCHEME:=http}" "${R3_DEVICE_STAGE:=@@STAGE@@}"
 echo "remoteit-device: Home Assistant's UI is $HA_SCHEME on 127.0.0.1:$HA_PORT"
 
@@ -32,7 +44,7 @@ ip -4 -o addr show 2>/dev/null | grep -q ' 172\.30\.32\.1/' && listen=172.30.32.
 # The add-on's container starts afresh each time, so nothing is left from a start with it on.
 admin=/run/remoteit-addon
 rm -rf "$admin" /etc/sudoers.d/remoteit-console
-if [ "$(jq -r '.console_admin // false' /data/options.json 2>/dev/null)" = true ]; then
+if [ "$(jq -r '.console_admin // false' "$options" 2>/dev/null)" = true ]; then
   mkdir -m 0700 "$admin"
   if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
     (umask 077 && printf '%s' "$SUPERVISOR_TOKEN" > "$admin/supervisor_token")
@@ -48,7 +60,7 @@ fi
 # into /data, handed over to beside the one running, confirmed, or the one before kept (the image's
 # R3_DEVICE_SELF_UPDATE). An add-on update newer than what the device took runs as soon as it starts. Off, the device
 # is updated with the add-on alone.
-if [ "$(jq -r 'if .auto_update == false then "off" else "on" end' /data/options.json 2>/dev/null || echo on)" = on ]; then
+if [ "$(jq -r 'if .auto_update == false then "off" else "on" end' "$options" 2>/dev/null || echo on)" = on ]; then
   export R3_DEVICE_SELF_UPDATE=1
   echo "remoteit-device: auto_update: the device takes remote.it's releases itself"
 fi

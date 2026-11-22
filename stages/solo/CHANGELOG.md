@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.27
+
+- Allow the device to host a proxy or exit when assigned in the portal. Each role can be blocked independently
+  in the add-on configuration.
+
 ## 0.13.26
 
 - The remote.it device 1.1.0.20261121234257 (connectd-go 5.6.1.20261121234257, connectd-source fb7948d3196c): solo's
