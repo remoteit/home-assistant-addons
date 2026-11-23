@@ -1,6 +1,7 @@
 #!/bin/sh
 # Fetch the remote.it device for this machine from @@STAGE@@'s downloads and lay it out as the device image does
-# (/usr/lib/remoteit-device: connectd, stages/, BUILD, FORMAT, release-keys, catalogue-keys, default-stage, entrypoint, healthcheck) with the add-on's panel
+# (/usr/lib/remoteit-device: the package's own files — connectd, stages/ and its keys —, BUILD, FORMAT, default-stage,
+# entrypoint, healthcheck) with the add-on's panel
 # beside them (remoteit-panel) — run by the Dockerfile while Supervisor builds the add-on on the Home Assistant machine.
 # Two packages of one build, both named by its manifest: the device's tarball (tar-<arch>) and the container pieces
 # (container-<arch>: remoteit-device's container/ entrypoint and healthcheck, and container/panel built).
@@ -62,9 +63,11 @@ get() {
   find "$tmp/$1" -mindepth 1 -maxdepth 1 -type d | head -n1
 }
 
-# The device: connectd, its stages, BUILD, the release keys the apps' manifests (the console) must be signed by —
-# without them the device installs no app — and the catalogue keys its apps' delivery grants are checked against —
-# without them it runs none (connectd device/app_grant.go).
+# The device: connectd, its stages, BUILD, and its keys — the release keys the apps' manifests (the console) must be
+# signed by, the catalogue keys its apps' delivery grants are checked against (connectd device/app_grant.go), and,
+# where the stage has them, the trust roots its signed settings document is checked against and the registration
+# keys. A device that has taken a signed document refuses an unsigned one, so without the trust roots it applies none:
+# no apps, no accounts, no release.
 pkgdir=$(get "tar-$tar_arch")
 [ -x "$pkgdir/connectd" ] && [ -d "$pkgdir/stages" ] && [ -f "$pkgdir/BUILD" ] && [ -s "$pkgdir/release-keys" ] &&
   [ -s "$pkgdir/catalogue-keys" ] ||
@@ -75,8 +78,14 @@ cdir=$(get "container-$tar_arch")
   fail "container-$tar_arch does not hold the entrypoint, healthcheck and panel"
 
 mkdir -p "$dest"
-cp "$pkgdir/connectd" "$pkgdir/release-keys" "$pkgdir/catalogue-keys" "$cdir/entrypoint" "$cdir/healthcheck" "$cdir/remoteit-panel" "$dest/"
-cp -R "$pkgdir/stages" "$dest/stages"
+# Every file the package ships, as the device image carries it (remoteit-device container/build.sh copies its keys
+# whole), so a key the package gains is never left behind by a list kept here. Not its own service files (init/), its
+# install helper (the entrypoint writes the container's) or its BUILD and FORMAT (written below).
+for f in "$pkgdir"/*; do
+  case ${f##*/} in init|remoteit-device|BUILD|FORMAT) continue ;; esac
+  cp -R "$f" "$dest/"
+done
+cp "$cdir/entrypoint" "$cdir/healthcheck" "$cdir/remoteit-panel" "$dest/"
 # What the package is, as the device image's BUILD says it: connectd reports it. The format is the image's; who
 # upgrades it is Home Assistant (a new add-on version), not the device — the tarball's BUILD says remoteit.
 sed -e 's/^format .*/format container/' -e '/^updated_by /d' "$pkgdir/BUILD" > "$dest/BUILD"
