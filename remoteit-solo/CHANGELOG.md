@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.30
+
+- The device package is laid into the add-on whole, its trust roots and registration keys with it. Without the trust
+  roots a device that had taken a signed settings document refused every one after the add-on was installed or
+  updated: its apps (the console among them) and accounts never came back, and it took no release.
+
 ## 0.13.29
 
 - The remote.it device 1.1.0.20261123002813 (connectd-go 5.6.1.20261123002813, connectd-source fb7948d3196c): solo's
